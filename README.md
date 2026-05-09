@@ -74,10 +74,18 @@ Adding a new jurisdiction means writing a YAML file — no pipeline code changes
 
 ## Status
 
-**Phase 0 (Ingestion & Triage)** — complete and testable.
-**Phases 1–5** — implementation in progress. GPU-dependent phases are blocked pending model training completion (~24h).
+| Phase | Name | Status |
+|---|---|---|
+| 0 | Ingestion & Triage | ✅ Complete (rule-based, no GPU) |
+| 1 | Multi-Modal Digitisation | ⏳ Blocked — needs GPU (training ~24h) |
+| 2 | Spatial Reconstruction | ⏳ Blocked — needs GPU |
+| 3 | Synthesis & Drafting | ⏳ Blocked — needs GPU |
+| 4 | Compliance Refinement | ⏳ Blocked — needs GPU (structural checks ready) |
+| 5 | Assembly & Export | ✅ Complete (rule-based, no GPU) |
+| — | Template engine | ✅ Complete — 14 jurisdiction templates |
+| — | Review dashboard | 📅 Planned for Phase 4/5 integration |
 
-See [`HOARD_Planning_v1.md`](HOARD_Planning_v1.md) for the full development roadmap.
+GPU-dependent phases will be available after model training completes.
 
 ## Licence
 

@@ -19,6 +19,7 @@ from rich.console import Console
 
 from erd.config import Config, init_project_config
 from erd.phases.phase0 import run_phase0
+from erd.phases.phase5 import run_phase5
 from erd.workspace import Workspace
 
 console = Console()
@@ -44,18 +45,28 @@ def run_pipeline(config: Config) -> None:
     else:
         console.print("[dim]Phase 0: already complete (skipping)[/]")
 
-    # Phase 1-5 stubs
+    # Phase 1-4 (GPU-dependent)
     for ph, name in [(1, "Multi-Modal Digitisation"),
                      (2, "Spatial Reconstruction"),
                      (3, "Synthesis & Drafting"),
-                     (4, "Compliance Refinement"),
-                     (5, "Assembly & Export")]:
+                     (4, "Compliance Refinement")]:
         if not ws.state.is_phase_complete(ph):
             console.print(f"[yellow]ℹ[/] Phase {ph} ({name}): not yet implemented")
             console.print("  Requires GPU — will be available after model training completes.")
-            break  # stop at first unimplemented phase
+            break
         else:
             console.print(f"[dim]Phase {ph}: already complete (skipping)[/]")
+
+    # Phase 5 (rule-based, available now)
+    if not ws.state.is_phase_complete(5):
+        console.print("[blue]→[/] Phase 5: Assembly & Export")
+        result = run_phase5(config)
+        ws.state.complete_phase(5, f"Report exported: {result.get('export_paths', {}).get('docx', 'N/A')}")
+        console.print(f"[green]✓[/] Phase 5 complete.")
+        for fmt, path in result.get("export_paths", {}).items():
+            console.print(f"  {fmt}: {path}")
+    else:
+        console.print("[dim]Phase 5: already complete (skipping)[/]")
 
 
 def run_single_phase(config: Config, phase: int) -> None:
@@ -65,11 +76,13 @@ def run_single_phase(config: Config, phase: int) -> None:
 
     phases = {
         0: ("Ingestion & Triage", lambda: run_phase0(config)),
+        5: ("Assembly & Export", lambda: run_phase5(config)),
     }
 
     if phase not in phases:
         console.print(f"[yellow]ℹ[/] Phase {phase} is not yet implemented.")
-        console.print("  Requires GPU — check back after model training (~24h).")
+        if phase in (1, 2, 3, 4):
+            console.print("  Requires GPU — check back after model training (~24h).")
         return
 
     name, fn = phases[phase]
