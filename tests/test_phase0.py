@@ -224,10 +224,14 @@ class TestRunPhase0:
         assert manifest["mandatory_check"] == "FAIL"
 
     def test_single_context_sheet(self, tmp_path: Path) -> None:
-        """Phase 0 should detect a single context sheet."""
+        """Phase 0 should detect a context sheet with finds data."""
         input_dir = tmp_path / "input"
         input_dir.mkdir()
         _make_synthetic_png(input_dir / "ctx_001.png")
+        _make_synthetic_csv(input_dir / "finds.csv", [
+            ["context", "object_type", "quantity", "period"],
+            ["101", "pottery", "5", "Roman"],
+        ])
         workspace = tmp_path / "erd_workspace"
 
         config = Config(
@@ -239,7 +243,7 @@ class TestRunPhase0:
         )
 
         manifest = run_phase0(config)
-        assert len(manifest["files"]) == 1
+        assert len(manifest["files"]) == 2
         assert manifest["files"][0]["type"] == "context_sheet"
         assert manifest["mandatory_check"] == "PASS"
 
@@ -282,10 +286,11 @@ class TestRunPhase0:
         parsed = json.loads(manifest_path.read_text())
         assert parsed["project_id"] == "test_schema"
 
-    def test_missing_library_csv(self, tmp_path: Path) -> None:
-        """Phase 0 should handle CSV validation gracefully without openpyxl."""
+    def test_bad_finds_csv_with_context_sheet(self, tmp_path: Path) -> None:
+        """Phase 0 should flag a CSV with no recognisable columns."""
         input_dir = tmp_path / "input"
         input_dir.mkdir()
+        _make_synthetic_png(input_dir / "ctx_001.png")
         # A CSV that looks like a finds catalogue but has no useful columns
         _make_synthetic_csv(input_dir / "finds.csv", [
             ["col1", "col2", "col3"],
@@ -302,5 +307,6 @@ class TestRunPhase0:
         )
 
         manifest = run_phase0(config)
-        assert manifest["mandatory_check"] == "PASS"  # CSV is still a finds_catalogue
+        assert manifest["mandatory_check"] == "PASS"  # Both mandatory types present
         assert len(manifest.get("finds_validation_issues", [])) > 0
+        assert len(manifest["finds_validation_issues"][0]["issues"]) > 0

@@ -39,5 +39,7 @@ models/
 .ctx/cache/
 .ctx/stats/
 
-# Temp
-*.~
+# Temp / backup files
+*~
+*.md~
+*.txt~

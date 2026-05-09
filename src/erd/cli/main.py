@@ -17,11 +17,15 @@ rules:   All subcommands must produce a non-error help message when their
 agent:   deepseek-v4-flash | 2026-05-09 | s_20260509_001 | Initial scaffold
 """
 
+from pathlib import Path
+
 import typer
 from rich.console import Console
 from rich.table import Table
 
 from erd import __version__
+from erd.config import Config, init_project_config
+from erd.cli.run import run_pipeline, run_single_phase
 
 app = typer.Typer(
     name="erd",
@@ -61,12 +65,18 @@ def init(
 ) -> None:
     """Initialise a new ERD project."""
     project_id = name.lower().replace(" ", "_").replace("'", "")
+    cfg = init_project_config(
+        project_id=project_id,
+        project_name=name,
+        jurisdiction=jurisdiction,
+        workspace_root=Path(output).resolve(),
+        input_dir=Path("./input").resolve(),
+    )
     console.print(f"[green]✓[/] Initialised project [bold]{name}[/]")
     console.print(f"  Project ID:  {project_id}")
     console.print(f"  Jurisdiction: {jurisdiction}")
-    console.print(f"  Workspace:    {output}/{project_id}/")
-    console.print("\n[yellow]ℹ[/] Ready. Run [bold]erd run --project {project_id}[/] to start the pipeline.")
-    console.print("  (Full implementation coming — Phase 0 is available now.)")
+    console.print(f"  Workspace:    {cfg.project_dir}")
+    console.print("\n[yellow]ℹ[/] Ready. Run [bold]erd run --project {project_id} --phase 0[/] to run Ingestion & Triage.")
 
 
 @app.command()
@@ -86,24 +96,22 @@ def run(
     ),
 ) -> None:
     """Run the pipeline (full or partial)."""
-    if phase is not None:
-        console.print(f"[blue]→[/] Running phase {phase} only for project [bold]{project}[/]")
-    elif from_phase is not None:
-        console.print(f"[blue]→[/] Running phases {from_phase}–5 for project [bold]{project}[/]")
-    else:
-        console.print(f"[blue]→[/] Running full pipeline for project [bold]{project}[/]")
-    console.print(f"  Input:    {input_dir}")
-    console.print(f"  Workspace: {workspace}/{project}/")
+    workspace_root = Path(workspace).resolve()
+    input_path = Path(input_dir).resolve()
 
-    # Phase routing — Phase 0 is the only one implemented so far
-    if phase is None or phase == 0:
-        console.print("\n[yellow]ℹ[/] Phase 0 (Ingestion & Triage): available")
-        console.print("  Use [bold]erd run --project {project} --phase 0[/] to run it.")
-    if phase is None or phase in (1, 2, 3, 4):
-        console.print(f"\n[yellow]ℹ[/] Phase {phase or '1–4'} (Digitisation/Spatial/Drafting/Compliance):")
-        console.print("  Requires GPU. Training in progress — check back after ~24h.")
-    if phase is None or phase == 5:
-        console.print("\n[yellow]ℹ[/] Phase 5 (Assembly & Export): not yet implemented")
+    # Auto-init if project doesn't exist yet
+    cfg = Config(
+        project_id=project,
+        project_name=project,
+        jurisdiction="historic_england_cl3",
+        workspace_root=workspace_root,
+        input_dir=input_path,
+    )
+
+    if phase is not None:
+        run_single_phase(cfg, phase)
+    else:
+        run_pipeline(cfg)
 
 
 @app.command()

@@ -18,10 +18,25 @@ import csv
 import hashlib
 import json
 import shutil
-import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+
+def _numpy_safe(obj: Any) -> Any:
+    """Recursively convert numpy types to native Python types for JSON."""
+    import numpy as np
+    if isinstance(obj, (np.integer,)):
+        return int(obj)
+    if isinstance(obj, (np.floating,)):
+        return float(obj)
+    if isinstance(obj, (np.ndarray,)):
+        return obj.tolist()
+    if isinstance(obj, dict):
+        return {k: _numpy_safe(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_numpy_safe(i) for i in obj]
+    return obj
 
 # import cv2  # lazy-import inside quality check functions
 # from PIL import Image  # lazy-import
@@ -78,11 +93,11 @@ class QualityFlags:
     def to_dict(self) -> dict[str, Any]:
         d: dict[str, Any] = {}
         if self.blur_score is not None:
-            d["blur_score"] = round(self.blur_score, 1)
+            d["blur_score"] = round(float(self.blur_score), 1)
         if self.skew_deg is not None:
-            d["skew_deg"] = round(self.skew_deg, 1)
+            d["skew_deg"] = round(float(self.skew_deg), 1)
         if self.exposure_mean is not None:
-            d["exposure_mean"] = round(self.exposure_mean)
+            d["exposure_mean"] = int(round(float(self.exposure_mean)))
         if self.flag:
             d["flag"] = self.flag
         return d
@@ -294,7 +309,7 @@ def _validate_xlsx_finds(filepath: Path) -> tuple[bool, list[str]]:
         ws = wb.active
         if ws is None:
             return False, ["No active sheet found"]
-        header = [str(c.value).lower() if c.value else "" for c in next(ws.iter_rows(min_row=1, max_row=1))[0]]
+        header = [str(c.value).lower() if c.value else "" for c in next(ws.iter_rows(min_row=1, max_row=1))]
         wb.close()
 
         if not header or all(h == "" for h in header):
@@ -337,29 +352,28 @@ def run_phase0(config: Config) -> dict[str, Any]:
 
         file_id = f"{filepath.stem}_{_file_hash(filepath)[:8]}"
 
-        # Step 2: Normalise images
-        normalised = _normalise_image(filepath, assets_dir)
-        if normalised is None:
-            # Could not normalise — skip
-            continue
+        # Non-image files (CSV, XLSX, TXT, DOCX, MD) bypass normalisation
+        non_image_exts = {".csv", ".xlsx", ".txt", ".docx", ".md"}
+        normalised: Path | None = None
 
-        asset_path = str(normalised.relative_to(config.workspace_root.parent))
-        # Simplify: store path relative to workspace root for portability
+        if ext in MAJOR_IMAGE_EXTS | {".pdf", ".heic", ".heif"} | RAW_EXTS:
+            normalised = _normalise_image(filepath, assets_dir)
+            if normalised is None:
+                continue  # Corrupt or unsupported image — skip
 
         # Step 3: Quality check (images only)
         quality = QualityFlags()
-        if ext in MAJOR_IMAGE_EXTS or normalised.suffix.lower() in MAJOR_IMAGE_EXTS:
+        if normalised and normalised.suffix.lower() in MAJOR_IMAGE_EXTS:
             quality = _assess_quality(normalised)
             if quality.flag:
                 quality_warnings += 1
 
         # Step 4: Classify
-        file_type = _classify_image(normalised)
+        classify_target = normalised if normalised else filepath
+        file_type = _classify_image(classify_target)
         if file_type == "unknown":
-            # Try extension-based fallback
-            if ext == ".csv":
-                file_type = "finds_catalogue"
-            elif ext == ".xlsx":
+            # Extension-based fallback for non-image files
+            if ext in (".csv", ".xlsx"):
                 file_type = "finds_catalogue"
             elif ext in (".dxf", ".svg"):
                 file_type = "plan"
@@ -418,8 +432,8 @@ def run_phase0(config: Config) -> dict[str, Any]:
         "halt": halt_flag,
     }
 
-    # Write manifest
+    # Write manifest (convert numpy types to native Python)
     manifest_path = manifest_dir / "manifest.json"
-    manifest_path.write_text(json.dumps(manifest, indent=2))
+    manifest_path.write_text(json.dumps(_numpy_safe(manifest), indent=2))
 
     return manifest
