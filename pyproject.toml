@@ -1,0 +1,61 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hoard-erd"
+version = "0.1.0"
+description = "Heritage Observation And Report Drafter — local multi-stage AI pipeline for archaeological grey literature reports"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [
+    { name = "Marcus Quinn" },
+]
+
+dependencies = [
+    # CLI
+    "typer>=0.12",
+    "rich>=13",
+
+    # Image processing
+    "pillow>=10",
+    "opencv-python-headless>=4.9",
+    "wand>=0.6",
+
+    # Data
+    "pandas>=2",
+    "openpyxl>=3",
+    "pyyaml>=6",
+
+    # OCR (loaded on demand)
+    # "transformers>=4.40",     # TrOCR
+    # "torch>=2",               # PyTorch
+
+    # Reporting
+    # pandoc is a system-level dependency, not pip
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8",
+    "pytest-cov>=5",
+    "ruff>=0.4",
+    "mypy>=1",
+]
+ocr = [
+    "transformers>=4.40",
+    "torch>=2",
+    "accelerate>=0.30",
+]
+llm = [
+    "llama-cpp-python>=0.3",
+]
+doc = [
+    "python-docx>=1",
+]
+
+[project.scripts]
+erd = "erd.cli.main:app"
+
+[tool.setuptools.packages.find]
+where = ["src"]

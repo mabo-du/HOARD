@@ -1,0 +1,143 @@
+# HOARD Jurisdiction Template: Historic England — Evaluation (CL3 compliant)
+# Based on: Historic England's "Management of Research Projects in the Historic Environment"
+#           and "Creating a Digital Archive" guidance.
+# Version: 2024
+
+jurisdiction: "Historic England — Evaluation (CL3 compliant)"
+version: "2024"
+
+# ── Mandatory Sections ─────────────────────────────────────────────────────
+# Each section must appear in the final report in this order.
+
+mandatory_sections:
+  - id: executive_summary
+    label: "Executive Summary"
+    max_words: 300
+    required_fields:
+      - project_name
+      - ngr                   # National Grid Reference
+      - dates                 # Fieldwork dates
+      - methodology_summary
+      - key_findings
+
+  - id: introduction
+    label: "Introduction"
+    required_fields:
+      - project_name
+      - site_location
+      - ngr
+      - planning_authority
+      - planning_application_ref
+      - her_reference          # Historic Environment Record reference
+
+  - id: aims_and_objectives
+    label: "Aims and Objectives"
+    required_fields:
+      - research_aims
+      - specific_objectives
+
+  - id: methodology
+    label: "Methodology"
+    required_fields:
+      - trench_strategy
+      - recording_system
+      - finds_policy
+      - sample_policy
+      - palaeoenvironmental_policy
+
+  - id: results_by_period
+    label: "Results"
+    sub_sections:
+      - prehistoric
+      - roman
+      - early_medieval
+      - medieval
+      - post_medieval
+      - modern
+      - undated
+    required_per_sub:
+      - context_list
+      - finds_summary
+      - interpretation
+
+  - id: discussion
+    label: "Discussion"
+    required_fields:
+      - synthesis
+      - significance_assessment
+
+  - id: archive_statement
+    label: "Archive Statement"
+    required_fields:
+      - repository
+      - accession_categories
+      - deposition_date
+      - digital_archive_format
+
+  - id: bibliography
+    label: "Bibliography"
+
+# ── Appendices ─────────────────────────────────────────────────────────────
+
+appendices:
+  - id: context_register
+    label: "Context Register"
+    auto_generate: true
+    source: "01_digitised/"
+
+  - id: finds_concordance
+    label: "Finds Concordance"
+    auto_generate: true
+    source: "01_digitised/"
+
+  - id: sample_register
+    label: "Sample Register"
+    auto_generate: true
+    source: "01_digitised/"
+
+  - id: oasis_entry
+    label: "OASIS Form"
+    auto_generate: false
+    note: "Site director to complete and submit via OASIS online portal"
+
+# ── Style Rules ────────────────────────────────────────────────────────────
+
+heading_style: "sentence_case"   # "Executive Summary" not "EXECUTIVE SUMMARY"
+
+figure_caption_format: "Fig. {n}: {description}. Scale 1:{scale} unless noted."
+
+table_caption_format: "Table {n}: {description}."
+
+citation_style: "author_date"    # e.g. (Brown, 2019)
+
+prohibited_terms:
+  - "significant"               # Historic England style guide prohibits
+  - "unique"
+  - "important finds"
+  - "extremely"
+  - "very significant"
+  - "ground-breaking"
+
+preferred_alternatives:
+  "significant": "notable / of interest"
+  "unique": "uncommon / rare in the local area"
+  "important finds": "notable assemblage"
+
+# ── Context Number Format ──────────────────────────────────────────────────
+
+context_number_format: "square_brackets"   # [123] not 123 or (123)
+
+# ── Figure Placement ───────────────────────────────────────────────────────
+
+figure_placement: "inline"      # Figures embedded near first reference
+
+# ── Export ─────────────────────────────────────────────────────────────────
+
+export:
+  docx:
+    reference_template: "templates/he_reference.docx"  # Organisational stylesheet
+  pdf:
+    page_size: "A4"
+    margin: "2.5cm"
+  digital_archive:
+    formats: ["PDF/A", "TEI-XML"]
