@@ -39,6 +39,13 @@ models/
 .ctx/cache/
 .ctx/stats/
 
+# Design and planning documents (kept locally, not in repo root)
+/HOARD_Technical_Design_v2.md
+/HOARD_Technical_Design_v2.txt
+/HOARD_Technical_Design_v2.docx
+/HOARD_Planning_v1.md
+/Inital_Idea
+
 # Temp / backup files
 *~
 *.md~
