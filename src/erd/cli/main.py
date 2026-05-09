@@ -20,6 +20,7 @@ agent:   deepseek-v4-flash | 2026-05-09 | s_20260509_001 | Initial scaffold
 from pathlib import Path
 
 import typer
+import yaml
 from rich.console import Console
 from rich.table import Table
 
@@ -162,9 +163,25 @@ def templates_cmd(
         table.add_column("Code", style="cyan")
         table.add_column("Jurisdiction", style="green")
         table.add_column("Version")
-        table.add_row("historic_england_cl3", "Historic England — Evaluation (CL3 compliant)", "2024")
+
+        template_dir = Path(__file__).resolve().parent.parent.parent.parent / "templates"
+        if template_dir.is_dir():
+            rows = []
+            for yaml_file in sorted(template_dir.glob("*.yaml")):
+                try:
+                    data = yaml.safe_load(yaml_file.read_text())
+                    code = yaml_file.stem
+                    jurisdiction = data.get("jurisdiction", "Unknown")
+                    version = data.get("version", "?")
+                    rows.append((code, jurisdiction, version))
+                except Exception:
+                    rows.append((yaml_file.stem, "Error loading template", "?"))
+
+            for code, jurisdiction, version in rows:
+                table.add_row(code, jurisdiction, version)
+
         console.print(table)
-        console.print("\n[yellow]ℹ[/] More templates can be added to templates/*.yaml")
+        console.print("\n[yellow]ℹ[/] Add new templates by creating *.yaml files in the templates/ directory.")
     elif action == "show":
         if not name:
             console.print("[red]✗[/] Use --name <code> to specify a template")

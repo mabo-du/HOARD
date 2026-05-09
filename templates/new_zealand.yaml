@@ -1,0 +1,119 @@
+# HOARD Jurisdiction Template: New Zealand — Heritage NZ Pouhere Taonga
+# Based on: Heritage New Zealand Pouhere Taonga Act 2014
+#           NZ Archaeological Association "Site Recording Standards"
+#           ICOMOS New Zealand Charter for the Conservation of Places of Cultural Heritage
+# Version: 2024
+
+jurisdiction: "New Zealand — Heritage New Zealand Pouhere Taonga (Section 42/43/44 Authority)"
+version: "2024"
+
+mandatory_sections:
+  - id: executive_summary
+    label: "Executive Summary"
+    max_words: 400
+    required_fields:
+      - project_name
+      - authority_number            # Heritage NZ authority number
+      - location
+      - nztm_coordinates             # New Zealand Transverse Mercator
+      - dates
+      - methodology_summary
+      - key_findings
+      - recommendations
+
+  - id: introduction
+    label: "Introduction"
+    required_fields:
+      - project_background
+      - site_location
+      - nztm_coordinates
+      - legal_description
+      - authority_details           # Authority type (Section 42/43/44) and conditions
+      - iwi_consultation_summary    # Māori iwi/hapū consultation
+      - archaeological_background
+
+  - id: research_design
+    label: "Research Design"
+    required_fields:
+      - research_questions
+      - methodology
+      - sampling_strategy
+      - iwi_involvement             # Māori participation and monitoring
+
+  - id: methodology
+    label: "Methodology"
+    required_fields:
+      - excavation_strategy
+      - recording_system
+      - finds_policy
+      - sample_policy
+      - kaitiaki_arrangements        # Māori cultural guardianship protocols
+      - iwi_monitoring
+
+  - id: results
+    label: "Results"
+    sub_sections:
+      - pre_contact                  # Māori pre-European contact
+      - contact_period               # Early European contact
+      - post_contact                 # Historic period
+      - natural_deposits
+    required_per_sub:
+      - feature_list
+      - finds_summary
+      - interpretation
+
+  - id: discussion
+    label: "Discussion"
+    required_fields:
+      - synthesis
+      - cultural_significance        # Significance to Māori and NZ heritage
+      - comparison_with_region
+      - iwi_feedback
+
+  - id: archive_statement
+    label: "Archive Statement"
+    required_fields:
+      - repository                   # NZ Archaeological Association / museum
+      - archive_contents
+      - digital_archive
+      - iwi_access_arrangements      # Māori access protocols
+
+  - id: bibliography
+    label: "Bibliography"
+
+appendices:
+  - id: context_register
+    label: "Context Register"
+    auto_generate: true
+
+  - id: finds_catalogue
+    label: "Finds Catalogue"
+    auto_generate: true
+
+  - id: sample_register
+    label: "Sample Register"
+    auto_generate: true
+
+  - id: iwi_consultation
+    label: "Iwi Consultation Records"
+    auto_generate: false
+    note: "Append consultation correspondence and monitoring reports"
+
+heading_style: "sentence_case"
+figure_caption_format: "Figure {n}: {description}."
+table_caption_format: "Table {n}: {description}."
+citation_style: "author_date"
+
+prohibited_terms: []
+
+context_number_format: "parentheses"
+figure_placement: "inline"
+
+export:
+  docx:
+    reference_template: "templates/nz_reference.docx"
+  pdf:
+    page_size: "A4"
+    margin: "2.5cm"
+  digital_archive:
+    formats: ["PDF/A"]

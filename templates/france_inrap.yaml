@@ -1,0 +1,143 @@
+# HOARD Jurisdiction Template: France — INRAP / DRAC / SRA Standards
+# Based on: Code du Patrimoine (Livre V: Archéologie)
+#           INRAP "Rapport d'Opération" guidelines
+#           DRAC/SRA regional service expectations
+# Version: 2024
+
+jurisdiction: "France — INRAP (Rapport d'Opération / Code du Patrimoine)"
+version: "2024"
+
+mandatory_sections:
+  - id: administrative_information
+    label: "Fiche Administrative (Administrative Summary)"
+    required_fields:
+      - rapport_type                  # Diagnostic / Fouille préventive / Fouille programmée
+      - arrêté_préfectoral           # Prefectoral order number
+      - code_opération               # National operation code
+      - region
+      - département
+      - commune
+      - lieu_dit
+      - cadastre
+      - prescription_authority       # DRAC / SRA
+      - operating_body               # INRAP / Collectivité / Opérateur privé
+      - responsible_person
+      - dates_intervention
+
+  - id: introduction
+    label: "Introduction"
+    required_fields:
+      - contexte_administratif
+      - cadre_réglementaire          # Code du Patrimoine articles
+      - projet_aménagement           # Development context
+      - surface_concernée
+      - emprise_et_parcelles
+
+  - id: geographical_context
+    label: "Contexte Géographique et Historique"
+    required_fields:
+      - localisation
+      - cadre_géomorphologique
+      - contexte_archéologique_connu
+      - périmètre_des_recherches      # Research perimeter
+
+  - id: methodology
+    label: "Méthodologie (Methodology)"
+    required_fields:
+      - surface_ouverte               # Area opened
+      - volume_déblaié                # Volume excavated
+      - conditions_d_intervention
+      - méthodes_d_enregistrement
+      - techniques_de_fouille
+      - stratégie_d_échantillonnage
+      - études_spécialisées
+      - traitements_numériques        # Digital recording methods
+
+  - id: stratigraphy
+    label: "Stratigraphie (Stratigraphy)"
+    required_fields:
+      - séquence_sédimentaire
+      - paléosols
+      - phases_d_occupation
+      - hiatus
+
+  - id: results
+    label: "Résultats (Results)"
+    sub_sections:
+      - paléolithique_et_mésolithique
+      - néolithique
+      - âge_du_bronze
+      - âge_du_fer
+      - antique                    # Gallo-romain
+      - haut_moyen_âge
+      - médiéval
+      - moderne_et_contemporain
+      - indéterminé
+    required_per_sub:
+      - description_des_structures
+      - mobilier_associé
+      - datation
+      - interprétation
+
+  - id: specialist_studies
+    label: "Études Spécialisées (Specialist Studies)"
+    sub_sections:
+      - céramologie
+      - lithique
+      - faune
+      - palynologie
+      - carpologie
+      - anthropologie
+      - datation_radiocarbone
+    required_per_sub: []
+
+  - id: synthesis
+    label: "Synthèse (Synthesis)"
+    required_fields:
+      - phasage_général
+      - apports_à_la_recherche
+      - perspectives
+
+  - id: bibliography
+    label: "Bibliographie"
+
+appendices:
+  - id: structures_list
+    label: "Liste des Faits (Feature Register)"
+    auto_generate: true
+
+  - id: us_list
+    label: "Liste des Unités Stratigraphiques (US Register)"
+    auto_generate: true
+
+  - id: mobilier_inventory
+    label: "Inventaire du Mobilier (Finds Inventory)"
+    auto_generate: true
+
+  - id: échantillons
+    label: "Liste des Échantillons (Sample Register)"
+    auto_generate: true
+
+  - id: photographic_record
+    label: "Relevé Photographique (Photographic Record)"
+    auto_generate: false
+    note: "Key feature and section photographs with scales"
+
+heading_style: "sentence_case"
+figure_caption_format: "Fig. {n} : {description}. Échelle 1:{scale} sauf indication contraire."
+table_caption_format: "Tableau {n} : {description}."
+citation_style: "author_date"
+
+prohibited_terms: []
+
+context_number_format: "parentheses"   # French convention: (US 001)
+figure_placement: "inline"
+
+export:
+  docx:
+    reference_template: "templates/inrap_reference.docx"
+  pdf:
+    page_size: "A4"
+    margin: "2.5cm"
+  digital_archive:
+    formats: ["PDF/A"]

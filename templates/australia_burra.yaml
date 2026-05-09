@@ -1,0 +1,144 @@
+# HOARD Jurisdiction Template: Australia — Burra Charter Standard
+# Based on: Australia ICOMOS Burra Charter (2013)
+#           NSW Heritage Branch "Archaeological Reporting Guidelines"
+#           Queensland DPC "Cultural Heritage Management Plan Standards"
+# Version: 2024
+
+jurisdiction: "Australia — Burra Charter (Australia ICOMOS / State Heritage Standards)"
+version: "2024"
+
+mandatory_sections:
+  - id: executive_summary
+    label: "Executive Summary"
+    max_words: 400
+    required_fields:
+      - project_name
+      - location
+      - state
+      - lot_plan                    # Cadastral reference for Australian sites
+      - dates
+      - permit_reference
+      - methodology_summary
+      - key_findings
+      - significance_statement_summary
+      - management_recommendations
+
+  - id: introduction
+    label: "Introduction"
+    required_fields:
+      - project_background
+      - site_location
+      - lot_plan
+      - local_government_area
+      - state_electorate
+      - heritage_listing_status       # State heritage register / National heritage list / Local
+      - previous_investigations
+
+  - id: legislative_context
+    label: "Legislative Context"
+    required_fields:
+      - commonwealth_legislation      # EPBC Act if applicable
+      - state_legislation             # Specific state Act (NSW Heritage Act, QLD CHMP, etc.)
+      - local_planning_instruments
+      - burra_charter_compliance
+
+  - id: environmental_context
+    label: "Environmental Context"
+    required_fields:
+      - physiographic_region
+      - geology_and_soils
+      - flora_and_fauna
+      - land_use_history
+
+  - id: cultural_context
+    label: "Cultural Context"
+    required_fields:
+      - aboriginal_occupation         # Indigenous cultural heritage context
+      - historical_context            # Post-contact history
+      - consultation_summary           # Aboriginal stakeholder / community consultation
+      - previous_investigations
+
+  - id: research_design
+    label: "Research Design"
+    required_fields:
+      - research_questions
+      - field_methods
+      - laboratory_methods
+      - curation_agreement
+
+  - id: results
+    label: "Results"
+    sub_sections:
+      - abcolonial_evidence
+      - historical_evidence
+      - features_and_deposits
+      - artifact_assemblage
+      - environmental_evidence
+      - dating_evidence
+    required_per_sub:
+      - description
+      - interpretation
+
+  - id: significance_assessment
+    label: "Cultural Significance Assessment"
+    required_fields:
+      - aesthetic_significance
+      - historic_significance
+      - scientific_significance
+      - social_significance           # Burra Charter four-pillar framework
+      - comparative_analysis
+      - statement_of_significance
+
+  - id: management_recommendations
+    label: "Management Recommendations"
+    required_fields:
+      - conservation_policy
+      - mitigation_recommendations    # Avoid / Minimise / Offset
+      - further_work                  # Additional investigation needs
+      - archive_and_curation
+
+  - id: bibliography
+    label: "Bibliography"
+
+appendices:
+  - id: context_register
+    label: "Context Register"
+    auto_generate: true
+
+  - id: artifact_catalogue
+    label: "Artifact Catalogue"
+    auto_generate: true
+
+  - id: sample_register
+    label: "Sample Register"
+    auto_generate: true
+
+  - id: consultation_record
+    label: "Community and Stakeholder Consultation Record"
+    auto_generate: false
+    note: "Complete from consultation meeting notes"
+
+heading_style: "sentence_case"
+figure_caption_format: "Figure {n}: {description}."
+table_caption_format: "Table {n}: {description}."
+citation_style: "author_date"
+
+prohibited_terms:
+  - "unique"
+  - "priceless"
+
+preferred_alternatives:
+  "unique": "rare / uncommon in this region"
+  "priceless": "of high cultural significance"
+
+context_number_format: "square_brackets"
+figure_placement: "inline"
+
+export:
+  docx:
+    reference_template: "templates/aus_reference.docx"
+  pdf:
+    page_size: "A4"
+    margin: "2.5cm"
+  digital_archive:
+    formats: ["PDF/A"]

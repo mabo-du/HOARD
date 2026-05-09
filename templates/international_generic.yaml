@@ -1,0 +1,125 @@
+# HOARD Jurisdiction Template: International Generic
+# A general-purpose template for jurisdictions without a dedicated HOARD template.
+# Covers the most commonly required sections across heritage authorities worldwide.
+# Can be customised by the site director for local requirements.
+# Version: 2024
+
+jurisdiction: "International — Generic (no specific authority template)"
+version: "2024"
+
+mandatory_sections:
+  - id: executive_summary
+    label: "Executive Summary"
+    max_words: 400
+    required_fields:
+      - project_name
+      - location
+      - coordinates
+      - dates
+      - permit_or_licence_ref
+      - methodology_summary
+      - key_findings
+      - recommendations
+
+  - id: introduction
+    label: "Introduction"
+    required_fields:
+      - project_background
+      - site_location
+      - coordinates
+      - administrative_area
+      - development_or_research_context
+      - archaeological_background
+      - previous_investigations
+
+  - id: legislative_framework
+    label: "Legislative and Planning Framework"
+    required_fields:
+      - applicable_legislation
+      - heritage_authority
+      - consent_conditions
+      - compliance_statement
+
+  - id: aims_and_objectives
+    label: "Aims and Objectives"
+    required_fields:
+      - research_questions
+      - specific_objectives
+      - methodology_overview
+
+  - id: methodology
+    label: "Methodology"
+    required_fields:
+      - field_methods
+      - recording_system
+      - finds_policy
+      - sampling_policy
+      - specialist_studies
+
+  - id: results
+    label: "Results"
+    sub_sections:
+      - stratigraphic_sequence
+      - features_and_structures
+      - finds_assemblage
+      - environmental_evidence
+      - dating_evidence
+    required_per_sub:
+      - description
+      - interpretation
+      - associated_contexts
+
+  - id: discussion
+    label: "Discussion"
+    required_fields:
+      - synthesis
+      - chronological_synthesis
+      - regional_comparison
+      - significance_assessment
+
+  - id: recommendations
+    label: "Recommendations"
+    required_fields:
+      - further_analysis
+      - publication_recommendation
+      - archive_and_curation
+
+  - id: bibliography
+    label: "Bibliography"
+
+appendices:
+  - id: context_register
+    label: "Context Register"
+    auto_generate: true
+
+  - id: finds_catalogue
+    label: "Finds Catalogue"
+    auto_generate: true
+
+  - id: sample_register
+    label: "Sample Register"
+    auto_generate: true
+
+  - id: site_photographs
+    label: "Site Photographs"
+    auto_generate: false
+    note: "Append key site photographs with captions"
+
+heading_style: "sentence_case"
+figure_caption_format: "Fig. {n}: {description}."
+table_caption_format: "Table {n}: {description}."
+citation_style: "author_date"
+
+prohibited_terms: []
+
+context_number_format: "parentheses"   # Configurable by site director
+figure_placement: "inline"
+
+export:
+  docx:
+    reference_template: "templates/generic_reference.docx"
+  pdf:
+    page_size: "A4"
+    margin: "2.5cm"
+  digital_archive:
+    formats: ["PDF/A"]

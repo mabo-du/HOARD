@@ -1,0 +1,124 @@
+# HOARD Jurisdiction Template: Netherlands — KNA (Kwaliteitsnorm Nederlandse Archeologie)
+# Based on: KNA 4.1 / 5.0 standards (Basisopgraving, Definitief Onderzoek)
+#           Rijksdienst voor het Cultureel Erfgoed (RCE) guidelines
+# Version: 2024
+
+jurisdiction: "Netherlands — KNA (Kwaliteitsnorm Nederlandse Archeologie, 5.0)"
+version: "2024"
+
+mandatory_sections:
+  - id: executive_summary
+    label: "Samenvatting (Executive Summary)"
+    max_words: 400
+    required_fields:
+      - project_name
+      - objectcode                  # KNA project code (Archis/Archol number)
+      - location
+      - gemeente                    # Municipality
+      - provincie                   # Province
+      - coordinates_rd              # Rijksdriehoekscoördinaten
+      - dates
+      - methodology_summary
+      - key_findings
+      - selectieadvies              # Selection advice (preserve/excavate/release)
+
+  - id: administrative_information
+    label: "Administratieve Gegevens (Administrative Information)"
+    required_fields:
+      - project_naam
+      - objectcode
+      - archis_number               # National archaeological information system
+      - bevoegd_overheid            # Competent authority
+      - opdrachtgever               # Client
+      - uitvoerder                  # Executing party
+      - vergunningsnummer           # Permit number if applicable
+      - vondstmelding               # Finds reporting number
+
+  - id: introduction
+    label: "Inleiding (Introduction)"
+    required_fields:
+      - aanleiding_onderzoek        # Reason for investigation
+      - bureauonderzoek_summary     # Summary of desk-based assessment
+      - gespecificeerde_verwachting # Specified archaeological expectation
+
+  - id: aims_and_methods
+    label: "Onderzoeksvragen en Methoden (Research Questions and Methods)"
+    required_fields:
+      - onderzoekvragen             # KNA-specified research questions
+      - veldwerk_methoden           # Fieldwork methods
+      - verwerkingsmethoden         # Processing methods
+      - dateringsmethoden           # Dating methods
+      - fysiek_onderzoek            # Physical/specialist research
+
+  - id: results
+    label: "Resultaten (Results)"
+    sub_sections:
+      - bodemopbouw_en_gaafheid     # Soil profile and preservation
+      - sporen_en_structuren        # Features and structures
+      - vondstmateriaal             # Finds
+      - monsteronderzoek            # Sample analysis
+      - dateringsonderzoek          # Dating analysis
+    required_per_sub:
+      - beschrijving                # Description
+      - interpretatie               # Interpretation
+      - waardering                  # Assessment (KNA value system)
+
+  - id: synthesis
+    label: "Synthese (Synthesis)"
+    required_fields:
+      - beantwoording_onderzoekvragen # Answers to research questions
+      - landschappelijke_context      # Landscape context
+      - cultuurhistorische_waardering # Cultural-historical value assessment
+
+  - id: selection_advice
+    label: "Selectieadvies (Selection Advice)"
+    required_fields:
+      - behoud_in_situ             # In-situ preservation recommendation
+      - behoud_ex_situ             # Ex-situ preservation (excavation) recommendation
+      - deponering                # Deposition arrangements
+      - aanbevelingen             # Recommendations
+
+  - id: bibliography
+    label: "Literatuur (Bibliography)"
+
+appendices:
+  - id: sporenlijst
+    label: "Sporenlijst (Feature Register)"
+    auto_generate: true
+
+  - id: vondstenlijst
+    label: "Vondstenlijst (Finds Register)"
+    auto_generate: true
+
+  - id: monsterlijst
+    label: "Monsterlijst (Sample Register)"
+    auto_generate: true
+
+  - id: dagrapporten
+    label: "Dagrapporten (Daily Reports)"
+    auto_generate: false
+    note: "Append field daily reports as scanned PDFs"
+
+  - id: profieltekeningen
+    label: "Profieltekeningen (Section Drawings)"
+    auto_generate: false
+    note: "Append digitised section drawings"
+
+heading_style: "sentence_case"
+figure_caption_format: "Afb. {n}: {description}. Schaal 1:{scale} tenzij anders vermeld."
+table_caption_format: "Tabel {n}: {description}."
+citation_style: "author_date"
+
+prohibited_terms: []
+
+context_number_format: "parentheses"  # Dutch convention: (001)
+figure_placement: "inline"
+
+export:
+  docx:
+    reference_template: "templates/kna_reference.docx"
+  pdf:
+    page_size: "A4"
+    margin: "2.5cm"
+  digital_archive:
+    formats: ["PDF/A", "EDM"]          # Electronic Document Management (Dutch system)

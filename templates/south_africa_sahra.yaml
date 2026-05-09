@@ -1,0 +1,135 @@
+# HOARD Jurisdiction Template: South Africa — SAHRA
+# Based on: National Heritage Resources Act (Act 25 of 1999)
+#           SAHRA Archaeology, Palaeontology and Meteorites Unit guidelines
+#           ASAPA (Association of Southern African Professional Archaeologists) standards
+# Version: 2024
+
+jurisdiction: "South Africa — SAHRA (National Heritage Resources Act, Act 25 of 1999)"
+version: "2024"
+
+mandatory_sections:
+  - id: executive_summary
+    label: "Executive Summary"
+    max_words: 400
+    required_fields:
+      - project_name
+      - sahra_case_id               # SAHRA case number
+      - location
+      - coordinates
+      - province
+      - local_municipality
+      - dates
+      - permit_reference
+      - key_findings
+      - recommendations
+
+  - id: introduction
+    label: "Introduction"
+    required_fields:
+      - project_background
+      - site_location
+      - coordinates
+      - province
+      - land_parcel_details
+      - development_description
+      - trigger_legislation          # NEMA / NHRA trigger section
+
+  - id: legislative_context
+    label: "Legislative and Regulatory Context"
+    required_fields:
+      - national_heritage_resources_act  # Section 34 (structures), 35 (archaeology), 36 (burial), 38 (HIA)
+      - nema_requirements                # National Environmental Management Act
+      - provincial_legislation
+      - permit_conditions
+
+  - id: environmental_and_cultural_context
+    label: "Environmental and Cultural Context"
+    required_fields:
+      - physiographic_region
+      - geology
+      - vegetation
+      - previous_heritage_studies
+      - known_heritage_resources
+
+  - id: methodology
+    label: "Methodology"
+    required_fields:
+      - field_survey_methods
+      - excavation_methods
+      - recording_systems
+      - finds_processing
+      - specialist_studies
+
+  - id: results
+    label: "Results"
+    sub_sections:
+      - stone_age
+      - iron_age
+      - historical_period
+      - burial_grounds                # Graves and cemeteries (Section 36)
+      - built_heritage                # Structures (Section 34)
+      - palaeontology
+    required_per_sub:
+      - description
+      - significance_rating          # SAHRA: high / medium / low / none
+      - field_rating
+
+  - id: significance_assessment
+    label: "Significance Assessment"
+    required_fields:
+      - heritage_value_assessment    # per Section 3(3) criteria
+      - field_rating                 # SAHRA field rating
+      - recommended_grading          # Grade I (national) / II (provincial) / III (local) / ungraded
+      - statement_of_significance
+
+  - id: impact_assessment
+    label: "Impact Assessment"
+    required_fields:
+      - construction_impacts
+      - operational_impacts
+      - cumulative_impacts
+      - proposed_mitigation
+
+  - id: management_recommendations
+    label: "Management Recommendations"
+    required_fields:
+      - mitigation_measures            # Avoid / Minimise / Remediate / Enhance
+      - monitoring_requirements
+      - contingency_plans
+      - archival_deposition
+
+  - id: bibliography
+    label: "References"
+
+appendices:
+  - id: context_register
+    label: "Context Register"
+    auto_generate: true
+
+  - id: finds_catalogue
+    label: "Finds Catalogue"
+    auto_generate: true
+
+  - id: specialist_reports
+    label: "Specialist Reports"
+    auto_generate: false
+    note: "Append specialist palaeontology, stone artefact, and faunal analyses"
+
+heading_style: "title_case"
+figure_caption_format: "Figure {n}: {description}."
+table_caption_format: "Table {n}: {description}."
+citation_style: "author_date"
+
+prohibited_terms: []
+
+context_number_format: "parentheses"
+figure_placement: "inline"
+
+export:
+  docx:
+    reference_template: "templates/sahra_reference.docx"
+  pdf:
+    page_size: "A4"
+    margin: "2.5cm"
+  digital_archive:
+    formats: ["PDF/A"]

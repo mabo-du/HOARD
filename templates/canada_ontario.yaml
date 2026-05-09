@@ -1,0 +1,148 @@
+# HOARD Jurisdiction Template: Canada — Ontario Heritage Standards
+# Based on: Ontario Heritage Act, Standards and Guidelines for Consultant Archaeologists (2011)
+#           Ministry of Citizenship and Multiculturalism (MCM) guidelines
+#           Canadian Archaeological Association principles
+# Version: 2024
+
+jurisdiction: "Canada — Ontario (Standards and Guidelines for Consultant Archaeologists, 2011)"
+version: "2024"
+
+mandatory_sections:
+  - id: executive_summary
+    label: "Executive Summary"
+    max_words: 400
+    required_fields:
+      - project_name
+      - pit_project_number          # MCM Project Information Tracking number
+      - location
+      - coordinates
+      - municipality
+      - county
+      - dates
+      - licence_number              # OAS licence number
+      - key_findings
+      - recommendations
+
+  - id: introduction
+    label: "Introduction"
+    required_fields:
+      - project_background
+      - site_location
+      - utm_coordinates
+      - lot_and_concession
+      - municipality
+      - county
+      - development_description
+      - trigger                      # Planning Act / Environmental Assessment / other
+
+  - id: regulatory_context
+    label: "Regulatory Context"
+    required_fields:
+      - ontario_heritage_act
+      - standards_and_guidelines_version
+      - planning_act_requirements
+      - municipal_bylaws
+
+  - id: environmental_context
+    label: "Environmental Context"
+    required_fields:
+      - physiographic_region
+      - drainage_basin
+      - soils_and_geology
+      - current_land_use
+
+  - id: cultural_context
+    label: "Cultural Context"
+    required_fields:
+      - paleo_indian_context
+      - archaic_context
+      - woodland_context
+      - historic_context
+      - previous_registered_sites    # Sites already in Ontario Archaeological Sites Database
+      - registered_sites_within_ape
+
+  - id: methodology
+    label: "Methodology"
+    required_fields:
+      - background_research
+      - property_inspection
+      - stage_2_assessment           # Test pit survey / ploughzone survey methods
+      - stage_3_assessment           # Site-specific assessment
+      - stage_4_mitigation           # Excavation / avoidance / protection
+      - recording_standards
+      - curation_agreement
+
+  - id: results
+    label: "Results"
+    sub_sections:
+      - stage_2_assessment_results
+      - stage_3_assessment_results
+      - stage_4_mitigation_results
+    required_per_sub:
+      - artifact_inventory
+      - feature_summary
+      - site_depositional_history
+
+  - id: analysis
+    label: "Artifact and Site Analysis"
+    required_fields:
+      - lithic_analysis
+      - ceramic_analysis
+      - historic_artifact_analysis
+      - faunal_analysis
+      - chronological_assessment
+      - site_function_interpretation
+
+  - id: evaluation_and_recommendations
+    label: "Evaluation and Recommendations"
+    required_fields:
+      - cultural_heritage_value      # CHV assessment per S&G criteria
+      - site_significance
+      - completion_requirements       # Documentation, curation, reporting compliance
+      - recommendations
+
+  - id: bibliography
+    label: "References"
+
+appendices:
+  - id: context_register
+    label: "Context Register"
+    auto_generate: true
+
+  - id: artifact_catalogue
+    label: "Artifact Catalogue"
+    auto_generate: true
+
+  - id: sample_register
+    label: "Sample Register"
+    auto_generate: true
+
+  - id: stage_2_test_plan
+    label: "Stage 2 Test Pit Plan"
+    auto_generate: false
+    note: "Include test pit location plan and results table"
+
+  - id: curation_receipt
+    label: "Curation Receipt"
+    auto_generate: false
+    note: "Append signed curation agreement from designated repository"
+
+heading_style: "title_case"
+figure_caption_format: "Figure {n}: {description}."
+table_caption_format: "Table {n}: {description}."
+citation_style: "author_date"
+
+prohibited_terms:
+  - "unique"
+
+context_number_format: "parentheses"
+figure_placement: "inline"
+
+export:
+  docx:
+    reference_template: "templates/ontario_reference.docx"
+  pdf:
+    page_size: "letter"
+    margin: "2.54cm"
+  digital_archive:
+    formats: ["PDF/A"]

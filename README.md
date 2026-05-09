@@ -51,9 +51,24 @@ Phase 0 is the only phase currently implemented. GPU-dependent phases (1–4) wi
 
 ## Jurisdiction Templates
 
-Reports conform to national heritage authority standards via declarative YAML templates. Currently available:
+Reports conform to national heritage authority standards via declarative YAML templates. Currently available (14 jurisdictions):
 
-- **Historic England CL3** — Evaluation reports (2024)
+| Code | Authority | Region |
+|---|---|---|
+| `historic_england_cl3` | Historic England — Evaluation (CL3) | England |
+| `historic_england_cl4` | Historic England — Excavation (CL4) | England |
+| `historic_environment_scotland` | HES — Data Structure Report (DSR) | Scotland |
+| `wales_rcahmw` | Cadw / RCAHMW | Wales |
+| `ireland_nms` | National Monuments Service (Section 26) | Ireland |
+| `netherlands_kna` | KNA 5.0 (Kwaliteitsnorm Nederlandse Archeologie) | Netherlands |
+| `france_inrap` | INRAP / Code du Patrimoine | France |
+| `germany_denkmalpflege` | Landesdenkmalpflege (Länder-specific) | Germany |
+| `us_section106` | Section 106 (NRHP Eligibility Evaluation) | United States |
+| `canada_ontario` | Ontario S&G for Consultant Archaeologists | Canada |
+| `australia_burra` | Burra Charter (ICOMOS / State Heritage) | Australia |
+| `new_zealand` | Heritage NZ Pouhere Taonga | New Zealand |
+| `south_africa_sahra` | SAHRA (National Heritage Resources Act) | South Africa |
+| `international_generic` | Generic (fallback for uncovered jurisdictions) | Any |
 
 Adding a new jurisdiction means writing a YAML file — no pipeline code changes required.
 

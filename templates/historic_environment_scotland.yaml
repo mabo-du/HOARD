@@ -1,0 +1,125 @@
+# HOARD Jurisdiction Template: Historic Environment Scotland (HES)
+# Based on: HES "Archaeological Excavation: Standards and Best Practice"
+#           and ALGAO Scotland guidelines for Data Structure Reports.
+# Version: 2024
+
+jurisdiction: "Historic Environment Scotland — Data Structure Report (DSR)"
+version: "2024"
+
+mandatory_sections:
+  - id: executive_summary
+    label: "Executive Summary"
+    max_words: 400
+    required_fields:
+      - project_name
+      - ngr
+      - dates
+      - her_ref
+      - canmore_id            # HES specific: Canmore monument ID
+      - planning_ref
+      - methodology_summary
+      - key_findings
+
+  - id: introduction
+    label: "Introduction"
+    required_fields:
+      - project_background
+      - site_location
+      - ngr
+      - geology_and_topography
+      - archaeological_background
+      - previous_interventions
+      - canmore_reference
+
+  - id: research_design
+    label: "Research Design"
+    required_fields:
+      - aims_and_objectives
+      - research_framework            # Scottish Archaeological Research Framework (ScARF)
+      - methodology_statement
+      - sampling_strategy
+
+  - id: methodology
+    label: "Methodology"
+    required_fields:
+      - excavation_strategy
+      - recording_system
+      - finds_processing
+      - environmental_sampling
+      - specialist_involvement
+      - archive_preparation
+
+  - id: results
+    label: "Results"
+    sub_sections:
+      - structural_evidence
+      - deposits_and_phasing
+      - finds_assemblage
+      - environmental_evidence
+      - scientific_dating
+    required_per_sub:
+      - description
+      - interpretation
+
+  - id: discussion
+    label: "Discussion"
+    required_fields:
+      - synthesis
+      - comparison_with_local_context
+      - scar_framework_relevance
+      - recommendations
+
+  - id: archive_statement
+    label: "Archive Statement"
+    required_fields:
+      - repository
+      - archive_contents
+      - digital_data
+      - depostion_arrangements
+
+  - id: bibliography
+    label: "Bibliography"
+
+appendices:
+  - id: context_register
+    label: "Context Register"
+    auto_generate: true
+
+  - id: finds_catalogue
+    label: "Finds Catalogue"
+    auto_generate: true
+
+  - id: sample_register
+    label: "Sample Register"
+    auto_generate: true
+
+  - id: des_entry
+    label: "Discovery and Excavation Scotland (DES) Entry"
+    auto_generate: false
+    note: "Draft DES entry for annual publication — complete and submit via Canmore"
+
+heading_style: "sentence_case"
+figure_caption_format: "Figure {n}: {description}. Scale as shown."
+table_caption_format: "Table {n}: {description}."
+citation_style: "author_date"
+
+prohibited_terms:
+  - "significant"
+  - "unique"
+  - "important"
+
+preferred_alternatives:
+  "significant": "notable / of interest"
+  "unique": "uncommon / rare in this region"
+
+context_number_format: "square_brackets"
+figure_placement: "inline"
+
+export:
+  docx:
+    reference_template: "templates/hes_reference.docx"
+  pdf:
+    page_size: "A4"
+    margin: "2.5cm"
+  digital_archive:
+    formats: ["PDF/A"]

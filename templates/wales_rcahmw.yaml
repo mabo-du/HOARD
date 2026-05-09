@@ -1,0 +1,124 @@
+# HOARD Jurisdiction Template: Wales — RCAHMW / Welsh Government
+# Based on: Welsh Government Historic Environment Service (Cadw) standards
+#           RCAHMW recording and reporting guidelines
+#           "Management of Archaeological Projects in Wales"
+# Version: 2024
+
+jurisdiction: "Wales — Historic Environment Service (Cadw / RCAHMW)"
+version: "2024"
+
+mandatory_sections:
+  - id: executive_summary
+    label: "Executive Summary"
+    max_words: 400
+    required_fields:
+      - project_name
+      - ngr
+      - community                   # Welsh community area
+      - dates
+      - her_ref                     # Historic Environment Record (Welsh HER)
+      - planning_ref
+      - methodology_summary
+      - key_findings
+      - archive_status
+
+  - id: introduction
+    label: "Introduction"
+    required_fields:
+      - project_background
+      - site_location
+      - ngr
+      - community
+      - geology_and_topography
+      - archaeological_background
+      - previous_work
+
+  - id: aims_and_objectives
+    label: "Aims and Objectives"
+    required_fields:
+      - research_aims
+      - specific_objectives
+      - wales_research_framework     # Welsh Archaeological Research Framework
+
+  - id: methodology
+    label: "Methodology"
+    required_fields:
+      - excavation_strategy
+      - recording_system
+      - finds_policy
+      - sample_policy
+      - palaeoenvironmental_policy
+      - specialist_commissioning
+      - bilingual_requirements        # Welsh language report requirements
+
+  - id: results
+    label: "Results"
+    sub_sections:
+      - prehistoric
+      - roman
+      - early_medieval
+      - medieval
+      - post_medieval
+      - modern
+      - undated
+    required_per_sub:
+      - context_list
+      - finds_summary
+      - interpretation
+
+  - id: discussion
+    label: "Discussion"
+    required_fields:
+      - synthesis
+      - significance_assessment
+      - research_framework_contribution
+      - recommendations
+
+  - id: archive_statement
+    label: "Archive Statement"
+    required_fields:
+      - repository                   # National Museum Wales / local museum
+      - archive_contents
+      - digital_archive_format
+      - deposition_arrangements
+
+  - id: bibliography
+    label: "Bibliography"
+
+appendices:
+  - id: context_register
+    label: "Context Register"
+    auto_generate: true
+
+  - id: finds_concordance
+    label: "Finds Concordance"
+    auto_generate: true
+
+  - id: sample_register
+    label: "Sample Register"
+    auto_generate: true
+
+  - id: bilingual_summary
+    label: "Crynodeb Dwyieithog (Bilingual Summary)"
+    auto_generate: false
+    note: "Provide Welsh-language summary alongside English"
+
+heading_style: "sentence_case"
+figure_caption_format: "Fig. {n}: {description}. Scale 1:{scale} unless noted."
+citation_style: "author_date"
+
+prohibited_terms:
+  - "significant"
+  - "unique"
+
+context_number_format: "square_brackets"
+figure_placement: "inline"
+
+export:
+  docx:
+    reference_template: "templates/wales_reference.docx"
+  pdf:
+    page_size: "A4"
+    margin: "2.5cm"
+  digital_archive:
+    formats: ["PDF/A"]

@@ -1,0 +1,133 @@
+# HOARD Jurisdiction Template: Ireland — National Monuments Service
+# Based on: NMS "Excavation Reporting Standards and Guidelines"
+#           Transport Infrastructure Ireland (TII) "Archaeological Reporting Standards"
+# Version: 2024
+
+jurisdiction: "Ireland — National Monuments Service (Section 26 Licensing)"
+version: "2024"
+
+mandatory_sections:
+  - id: executive_summary
+    label: "Executive Summary"
+    max_words: 400
+    required_fields:
+      - project_name
+      - licence_number               # Irish Section 26 licence number (mandatory)
+      - townland
+      - ngr_irish                    # Irish National Grid
+      - dates
+      - methodology_summary
+      - key_findings
+
+  - id: introduction
+    label: "Introduction"
+    required_fields:
+      - project_background
+      - site_location
+      - townland
+      - parish
+      - barony
+      - ngr_irish
+      - rmp_number                   # Record of Monuments and Places number
+      - licence_details             # Licencee name, licence number, duration
+      - archaeological_background
+
+  - id: aims_and_objectives
+    label: "Aims and Objectives"
+    required_fields:
+      - research_aims
+      - specific_objectives
+      - ias_relevance                # Institute of Archaeologists of Ireland standards
+
+  - id: methodology
+    label: "Methodology"
+    required_fields:
+      - excavation_strategy
+      - mechanical_excavation_detail
+      - manual_excavation_detail
+      - recording_system
+      - finds_processing
+      - environmental_sampling
+      - specialist_commissioning
+
+  - id: results
+    label: "Results"
+    sub_sections:
+      - stratigraphic_account
+      - structural_remains
+      - features_by_period
+      - finds_assemblage
+      - environmental_evidence
+      - dating_evidence
+    required_per_sub:
+      - description
+      - interpretation
+      - context_list
+
+  - id: specialist_reports
+    label: "Specialist Reports"
+    sub_sections:
+      - lithics
+      - pottery
+      - metalwork
+      - animal_bone
+      - human_remains
+      - plant_remains
+      - radiocarbon_dating
+    required_per_sub: []
+
+  - id: discussion
+    label: "Discussion"
+    required_fields:
+      - synthesis
+      - local_and_regional_context
+      - ias_framework_relevance
+      - recommendations
+
+  - id: bibliography
+    label: "Bibliography"
+
+appendices:
+  - id: context_register
+    label: "Context Register"
+    auto_generate: true
+
+  - id: finds_concordance
+    label: "Finds Concordance"
+    auto_generate: true
+
+  - id: sample_register
+    label: "Sample Register"
+    auto_generate: true
+
+  - id: licence_requirements
+    label: "Licensing Conditions Compliance"
+    auto_generate: false
+    note: "Cross-check against Section 26 licence conditions — update manually"
+
+heading_style: "title_case"  # Irish reports typically use Title Case headings
+figure_caption_format: "Fig. {n}: {description}. Scale as indicated."
+table_caption_format: "Table {n}: {description}."
+citation_style: "author_date"
+
+prohibited_terms:
+  - "significant"
+  - "unique"
+  - "very extensive"
+
+preferred_alternatives:
+  "significant": "notable / of interest"
+  "unique": "uncommon / rare in Ireland"
+  "very extensive": "extensive"
+
+context_number_format: "square_brackets"
+figure_placement: "inline"
+
+export:
+  docx:
+    reference_template: "templates/nms_reference.docx"
+  pdf:
+    page_size: "A4"
+    margin: "2.5cm"
+  digital_archive:
+    formats: ["PDF/A"]

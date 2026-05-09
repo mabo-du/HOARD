@@ -1,0 +1,147 @@
+# HOARD Jurisdiction Template: Historic England — Excavation (CL4 compliant)
+# Based on: Historic England's "Management of Research Projects in the Historic Environment"
+#           and MORPHE: Project Planning and Implementation guides.
+# Version: 2024
+
+jurisdiction: "Historic England — Excavation (CL4 compliant)"
+version: "2024"
+extends: "historic_england_cl3"  # Inherits CL3 base rules, overrides/additions below
+
+mandatory_sections:
+  - id: executive_summary
+    label: "Executive Summary"
+    max_words: 500  # Longer than CL3 for excavation reports
+    required_fields:
+      - project_name
+      - ngr
+      - dates
+      - methodology_summary
+      - key_findings
+      - significance_statement
+
+  - id: introduction
+    label: "Introduction"
+    required_fields:
+      - project_name
+      - site_location
+      - ngr
+      - planning_authority
+      - planning_application_ref
+      - her_reference
+      - geology_and_topography
+      - previous_work
+
+  - id: aims_and_objectives
+    label: "Aims and Objectives"
+    required_fields:
+      - research_aims
+      - specific_objectives
+      - research_framework_relevance  # HE framework region (East Midlands, Wessex, etc.)
+
+  - id: methodology
+    label: "Methodology"
+    required_fields:
+      - excavation_strategy
+      - recording_system
+      - finds_policy
+      - sample_policy
+      - palaeoenvironmental_policy
+      - specialist_commissioning
+      - scientific_dating_policy
+
+  - id: results_by_period
+    label: "Results"
+    sub_sections:
+      - prehistoric
+      - roman
+      - early_medieval
+      - medieval
+      - post_medieval
+      - modern
+      - undated
+    required_per_sub:
+      - context_list
+      - finds_summary
+      - environmental_summary
+      - interpretation
+      - phase_discussion
+
+  - id: specialist_reports
+    label: "Specialist Reports"
+    sub_sections:
+      - lithics
+      - pottery
+      - ceramic_building_material
+      - metalwork
+      - glass
+      - animal_bone
+      - plant_macrofossils
+      - pollen
+      - radiocarbon_dating
+      - other_scientific_dating
+    required_per_sub: []
+
+  - id: discussion
+    label: "Discussion"
+    required_fields:
+      - synthesis
+      - significance_assessment
+      - research_framework_contribution
+
+  - id: archive_statement
+    label: "Archive Statement"
+    required_fields:
+      - repository
+      - accession_categories
+      - deposition_date
+      - digital_archive_format
+      - selected_retention_policy  # CL4 requires justification of retained/discarded finds
+
+  - id: bibliography
+    label: "Bibliography"
+
+appendices:
+  - id: context_register
+    label: "Context Register"
+    auto_generate: true
+
+  - id: finds_concordance
+    label: "Finds Concordance"
+    auto_generate: true
+
+  - id: sample_register
+    label: "Sample Register"
+    auto_generate: true
+
+  - id: trench_summaries
+    label: "Trench Summaries"
+    auto_generate: true
+
+  - id: oasisi_entry
+    label: "OASIS Form"
+    auto_generate: false
+    note: "Site director to complete and submit via OASIS online portal"
+
+heading_style: "sentence_case"
+figure_caption_format: "Fig. {n}: {description}. Scale 1:{scale} unless noted."
+citation_style: "author_date"
+
+prohibited_terms:
+  - "significant"
+  - "unique"
+  - "important finds"
+  - "extremely"
+  - "very significant"
+  - "ground-breaking"
+
+context_number_format: "square_brackets"
+figure_placement: "inline"
+
+export:
+  docx:
+    reference_template: "templates/he_reference.docx"
+  pdf:
+    page_size: "A4"
+    margin: "2.5cm"
+  digital_archive:
+    formats: ["PDF/A", "TEI-XML"]

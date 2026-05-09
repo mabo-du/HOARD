@@ -1,0 +1,132 @@
+# HOARD Jurisdiction Template: Germany — Denkmalpflege (State Heritage Offices)
+# Based on: DSchG (Denkmalschutzgesetze — vary by Bundesland)
+#           DGUF (Deutsche Gesellschaft für Ur- und Frühgeschichte) publication standards
+#           VLA (Verband der Landesarchäologen) guidelines
+# Version: 2024
+
+jurisdiction: "Germany — Landesdenkmalpflege (standards vary by Bundesland)"
+version: "2024"
+
+mandatory_sections:
+  - id: executive_summary
+    label: "Zusammenfassung (Executive Summary)"
+    max_words: 400
+    required_fields:
+      - projektname
+      - aktenzeichen                 # Heritage office file reference
+      - ort                         # City/town
+      - landkreis                   # District
+      - bundesland                  # Federal state
+      - coordinates_gk              # Gauß-Krüger / UTM coordinates
+      - dates
+      - genehmigungsnummer          # Permit number
+      - key_findings
+      - bewertung                   # Assessment
+
+  - id: administrative_information
+    label: "Verwaltungsangaben (Administrative Information)"
+    required_fields:
+      - projektname
+      - aktenzeichen
+      - denkmalfachbehörde          # Heritage authority (Landesamt)
+      - genehmigungsinhaber         # Permit holder
+      - durchführende_stelle        # Executing organisation
+      - anlass                     # Reason (Bauvorhaben / Forschungsgrabung / Notgrabung)
+
+  - id: introduction
+    label: "Einleitung (Introduction)"
+    required_fields:
+      - anlass_und_fragestellung    # Project rationale
+      - lage_des_untersuchungsgebietes
+      - coordinates
+      - gemeinde
+      - grundstücksdaten            # Property details
+      - bisherige_befunde           # Known archaeology in area
+
+  - id: natural_environment
+    label: "Naturräumliche Situation (Natural Environment)"
+    required_fields:
+      - geologie_und_geomorphologie
+      - bodenverhältnisse           # Soil conditions
+      - hydrologie
+      - paläoumwelt                 # Palaeoenvironment
+
+  - id: methodology
+    label: "Methodik (Methodology)"
+    required_fields:
+      - grabungsmethode             # Excavation method
+      - dokumentation               # Recording system
+      - funde_bergung               # Finds recovery
+      - probenentnahme              # Sampling
+      - naturwissenschaftliche_untersuchungen  # Scientific analyses
+
+  - id: results
+    label: "Befunde und Funde (Features and Finds)"
+    sub_sections:
+      - paläolithikum_mesolithikum
+      - neolithikum
+      - bronzezeit
+      - eisenzeit
+      - römische_kaiserzeit
+      - frühmittelalter
+      - hochmittelalter_spätmittelalter
+      - neuzeit
+      - undatiert
+    required_per_sub:
+      - befunde                     # Features
+      - funde                       # Finds
+      - datierung                   # Dating
+      - interpretation
+
+  - id: synthesis
+    label: "Auswertung und Interpretation (Analysis and Interpretation)"
+    required_fields:
+      - siedlungsentwicklung        # Settlement development
+      - wirtschaft_und_umwelt       # Economy and environment
+      - kulturelle_einbindung       # Cultural connections
+      - denkmalwert                 # Heritage value assessment
+
+  - id: bibliography
+    label: "Literaturverzeichnis (Bibliography)"
+
+appendices:
+  - id: befundliste
+    label: "Befundliste (Feature Register)"
+    auto_generate: true
+
+  - id: fundliste
+    label: "Fundliste (Finds Register)"
+    auto_generate: true
+
+  - id: probenliste
+    label: "Probenliste (Sample Register)"
+    auto_generate: true
+
+  - id: profile
+    label: "Profilzeichnungen (Section Drawings)"
+    auto_generate: false
+    note: "Append digitised section drawings"
+
+  - id: pläne
+    label: "Pläne (Plans)"
+    auto_generate: false
+    note: "Append site plans and feature plans"
+
+heading_style: "sentence_case"         # German: nouns capitalised within sentences
+figure_caption_format: "Abb. {n}: {description}. Maßstab 1:{scale}."
+table_caption_format: "Tab. {n}: {description}."
+citation_style: "author_date"
+
+prohibited_terms: []
+
+context_number_format: "parentheses"   # German convention: Befund (001)
+figure_placement: "inline"
+
+export:
+  docx:
+    reference_template: "templates/dschg_reference.docx"
+  pdf:
+    page_size: "A4"
+    margin: "2.5cm"
+  digital_archive:
+    formats: ["PDF/A"]
