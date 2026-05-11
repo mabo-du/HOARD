@@ -176,5 +176,5 @@ t008|t009
 <!--/TOON:subtasks-->
 
 <!--TOON:summary{total,ready,pending,in_progress,in_review,done,declined,total_est,total_actual}:
-35,0,30,0,0,5,0,72h,20h
+35,0,27,0,0,8,0,72h,30h
 -->
