@@ -35,19 +35,21 @@ erd run --project stoneyfield_farm_2026 --input ./field_records --phase 0
 erd templates list
 ```
 
-Phase 0 is the only phase currently implemented. GPU-dependent phases (1–4) will be available after model evaluation — see [`HOARD_Planning_v1.md`](HOARD_Planning_v1.md) for the roadmap.
+Phases 0 and 5 are fully implemented (no GPU). GPU-dependent phases (1–4) will be available after model evaluation. See `docs/user-guide.md` for full documentation.
 
 ## CLI Reference
 
 | Command | Description |
 |---|---|
 | `erd init <name>` | Initialise a new project |
-| `erd run --project <id>` | Run the pipeline |
+| `erd run --project <id>` | Run the pipeline (full or partial) |
 | `erd run --project <id> --phase <N>` | Run a single phase |
 | `erd run --project <id> --from-phase <N>` | Run from phase N onward |
-| `erd review --project <id>` | Review dashboard for flagged items |
-| `erd export --project <id>` | Export final report |
+| `erd review --project <id>` | Interactive review dashboard for flagged items |
+| `erd export --project <id> --format docx,pdf` | Export final report |
 | `erd templates list` | List available jurisdiction templates |
+| `erd templates show --name <code>` | Show template details |
+| `erd templates validate --file <path>` | Validate a template file |
 
 ## Jurisdiction Templates
 
@@ -74,7 +76,7 @@ Adding a new jurisdiction means writing a YAML file — no pipeline code changes
 
 ## Status
 
-| Phase | Name | Status |
+| Phase / Feature | Name | Status |
 |---|---|---|
 | 0 | Ingestion & Triage | ✅ Complete (rule-based, no GPU) |
 | 1 | Multi-Modal Digitisation | ⏳ Blocked — needs GPU (training ~24h) |
@@ -83,9 +85,50 @@ Adding a new jurisdiction means writing a YAML file — no pipeline code changes
 | 4 | Compliance Refinement | ⏳ Blocked — needs GPU (structural checks ready) |
 | 5 | Assembly & Export | ✅ Complete (rule-based, no GPU) |
 | — | Template engine | ✅ Complete — 14 jurisdiction templates |
-| — | Review dashboard | 📅 Planned for Phase 4/5 integration |
+| — | Review dashboard | ✅ Complete — interactive Rich TUI |
+| — | Harris Matrix | ✅ Complete — pure-Python SVG generator |
+| — | User guide | ✅ Complete — see `docs/user-guide.md` |
 
 GPU-dependent phases will be available after model training completes.
+
+## Review Dashboard
+
+After running a pipeline phase, review flagged items interactively:
+
+```bash
+erd review --project stoneyfield_2026
+```
+
+The terminal TUI presents each flagged item one at a time:
+- **Accept** — mark the AI value as correct
+- **Edit** — type a corrected value
+- **Defer** — skip for later review
+
+Corrections are written back to the workspace JSON, and pipeline state is updated so you can re-run from the corrected phase.
+
+Supports flags from: image quality issues, low-confidence OCR fields, spatial grounding failures, draft uncertainty markers, and compliance findings.
+
+## Harris Matrix
+
+HOARD generates a stratigraphic Harris Matrix SVG from context sheet relationships — automatically during Phase 5, or standalone:
+
+```bash
+# Generated as part of Phase 5 assembly
+erd run --project stoneyfield_2026 --phase 5
+# Output: erd_workspace/stoneyfield_2026/05_final/harris_matrix.svg
+```
+
+Colour-coded by period, arrows pointing from later to earlier contexts. Pure Python — no graphviz required.
+
+## Documentation
+
+Full documentation is available in [`docs/user-guide.md`](docs/user-guide.md), covering:
+- Installation and quick start
+- Complete CLI reference
+- Pipeline phase walkthrough
+- Jurisdiction template guide (all 14)
+- Review dashboard and Harris Matrix usage
+- GPU setup and troubleshooting
 
 ## Licence
 
