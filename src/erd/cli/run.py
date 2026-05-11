@@ -13,11 +13,10 @@ agent:   deepseek-v4-flash | 2026-05-09 | s_20260509_001 | Initial scaffold
 
 from __future__ import annotations
 
-from pathlib import Path
 
 from rich.console import Console
 
-from erd.config import Config, init_project_config
+from erd.config import Config
 from erd.phases.phase0 import run_phase0
 from erd.phases.phase5 import run_phase5
 from erd.workspace import Workspace
@@ -62,7 +61,7 @@ def run_pipeline(config: Config) -> None:
         console.print("[blue]→[/] Phase 5: Assembly & Export")
         result = run_phase5(config)
         ws.state.complete_phase(5, f"Report exported: {result.get('export_paths', {}).get('docx', 'N/A')}")
-        console.print(f"[green]✓[/] Phase 5 complete.")
+        console.print("[green]✓[/] Phase 5 complete.")
         for fmt, path in result.get("export_paths", {}).items():
             console.print(f"  {fmt}: {path}")
     else:

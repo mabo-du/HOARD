@@ -22,6 +22,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from erd.config import Config
+
 
 def _numpy_safe(obj: Any) -> Any:
     """Recursively convert numpy types to native Python types for JSON."""
@@ -40,8 +42,6 @@ def _numpy_safe(obj: Any) -> Any:
 
 # import cv2  # lazy-import inside quality check functions
 # from PIL import Image  # lazy-import
-
-from erd.config import Config
 
 # ── Constants ──────────────────────────────────────────────────────────────
 
@@ -352,8 +352,7 @@ def run_phase0(config: Config) -> dict[str, Any]:
 
         file_id = f"{filepath.stem}_{_file_hash(filepath)[:8]}"
 
-        # Non-image files (CSV, XLSX, TXT, DOCX, MD) bypass normalisation
-        non_image_exts = {".csv", ".xlsx", ".txt", ".docx", ".md"}
+        # Non-image files bypass normalisation (handled by CSV/XLSX validation below)
         normalised: Path | None = None
 
         if ext in MAJOR_IMAGE_EXTS | {".pdf", ".heic", ".heif"} | RAW_EXTS:

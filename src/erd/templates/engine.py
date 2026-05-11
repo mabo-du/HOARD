@@ -293,7 +293,7 @@ class TemplateEngine:
         non_matching = []
         for line in draft_text.split("\n"):
             line = line.strip()
-            if re.match(rf"^(Fig|Figure|Fig\.|Figure\.)\s+\d+", line, re.IGNORECASE):
+            if re.match(r"^(Fig|Figure|Fig\.|Figure\.)\s+\d+", line, re.IGNORECASE):
                 if not caption_pattern.match(line):
                     non_matching.append(line)
 
