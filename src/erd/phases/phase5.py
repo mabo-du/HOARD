@@ -172,89 +172,21 @@ def _generate_sample_register(digitised_dir: Path) -> str:
 def _generate_harris_matrix_svg(context_jsons: list[dict[str, Any]]) -> str | None:
     """Generate a Harris Matrix SVG from stratigraphic relationships.
 
-    Uses graphviz via subprocess. Returns SVG string on success, None if
-    graphviz is not available or no relationships exist.
+    Uses the pure-Python Harris Matrix renderer (no graphviz needed).
+    Returns SVG string on success, None if no relationships exist.
 
     Relationships are derived from context JSON 'cut_by', 'cuts', 'fills',
-    and 'filled_by' fields.
+    'filled_by', and 'same_as' fields.
     """
-    # Collect all context numbers and relationships
-    all_contexts: set[str] = set()
-    edges: list[tuple[str, str]] = []  # (above, below) — "above" is later in time
-
-    for data in context_jsons:
-        ctx_num = data.get("context_number")
-        if not ctx_num:
-            continue
-        all_contexts.add(ctx_num)
-
-        # A cuts/truncates B → A is later than B
-        cuts = data.get("cuts", [])
-        for earlier in cuts:
-            if isinstance(earlier, str):
-                edges.append((ctx_num, earlier))
-                all_contexts.add(earlier)
-
-        # A is cut by B → B is later than A
-        cut_by = data.get("cut_by", [])
-        for later in cut_by:
-            if isinstance(later, str):
-                edges.append((later, ctx_num))
-                all_contexts.add(later)
-
-        # A fills B → A is later than B
-        fills = data.get("fills", [])
-        for earlier in fills:
-            if isinstance(earlier, str):
-                edges.append((ctx_num, earlier))
-                all_contexts.add(earlier)
-
-        # A is filled by B → B is later than A
-        filled_by = data.get("filled_by", [])
-        for later in filled_by:
-            if isinstance(later, str):
-                edges.append((later, ctx_num))
-                all_contexts.add(later)
-
-    if not edges and len(all_contexts) <= 1:
+    if not context_jsons:
         return None
 
-    # Generate DOT input
-    dot_lines = [
-        "digraph HarrisMatrix {",
-        '  rankdir="TB";',
-        '  node [shape=box, style=filled, fillcolor="#f0f0f0"];',
-        '  edge [arrowhead=none];',
-        '  graph [dpi=150, bgcolor="white"];',
-    ]
-    for ctx in sorted(all_contexts):
-        sanitised = ctx.replace("[", "").replace("]", "").replace(" ", "_")
-        dot_lines.append(f'  "{sanitised}" [label="{ctx}"];')
+    from erd.review.harris import build_matrix_from_contexts, render_harris_svg
 
-    for later, earlier in edges:
-        later_s = later.replace("[", "").replace("]", "").replace(" ", "_")
-        earlier_s = earlier.replace("[", "").replace("]", "").replace(" ", "_")
-        dot_lines.append(f'  "{later_s}" -> "{earlier_s}";')
-
-    dot_lines.append("}")
-
-    dot_source = "\n".join(dot_lines)
-
-    # Call graphviz
-    try:
-        result = subprocess.run(
-            ["dot", "-Tsvg"],
-            input=dot_source,
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
-        if result.returncode == 0:
-            return result.stdout
-    except (FileNotFoundError, subprocess.TimeoutExpired):
-        pass
-
-    return None
+    nodes = build_matrix_from_contexts(context_jsons)
+    if not nodes:
+        return None
+    return render_harris_svg(nodes, title="Harris Matrix")
 
 
 # ── Bibliography ─────────────────────────────────────────────────────────────
@@ -347,6 +279,7 @@ def assemble_report(
     # Step 5: Generate Harris Matrix
     harris_svg = _generate_harris_matrix_svg(context_jsons)
     if harris_svg:
+        config.final_dir.mkdir(parents=True, exist_ok=True)
         (config.final_dir / "harris_matrix.svg").write_text(harris_svg)
 
     # Step 6: Generate bibliography

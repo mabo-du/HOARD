@@ -122,12 +122,37 @@ def review(
         "./erd_workspace", "--workspace", "-w",
         help="Working directory root",
     ),
+    reset: bool = typer.Option(
+        False, "--reset", "-r",
+        help="Reset all review decisions and start fresh",
+    ),
 ) -> None:
     """Open the review dashboard for flagged items."""
-    console.print(f"[blue]→[/] Opening review dashboard for [bold]{project}[/]")
-    console.print(f"  Workspace: {workspace}/{project}/")
-    console.print("\n[yellow]ℹ[/] Review dashboard will be available after Phase 0 produces its first manifest.")
-    console.print("  (Terminal TUI — coming in a later sprint.)")
+    workspace_root = Path(workspace).resolve()
+    cfg = Config(
+        project_id=project,
+        project_name=project,
+        jurisdiction="historic_england_cl3",
+        workspace_root=workspace_root,
+        input_dir=Path("./input"),
+    )
+
+    if not cfg.project_dir.exists():
+        console.print(f"[red]✗[/] Project '{project}' not found at {cfg.project_dir}")
+        console.print("  Initialise it first with: [bold]erd init --name '...' --project {project}[/]")
+        raise typer.Exit(1)
+
+    from erd.review import ReviewSession
+
+    session = ReviewSession(cfg)
+    session.load()
+
+    if session.total == 0:
+        console.print(f"[yellow]ℹ[/] No flagged items found for project '{project}'.")
+        console.print("  Run [bold]erd run --project {project} --phase 0[/] first to generate a manifest.")
+        return
+
+    session.run_interactive()
 
 
 @app.command()

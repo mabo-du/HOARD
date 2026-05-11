@@ -139,10 +139,12 @@ class TestSampleRegister:
 
 
 class TestHarrisMatrix:
-    def test_no_relationships(self) -> None:
+    def test_single_context_returns_svg(self) -> None:
+        """A single context with no relationships produces a valid SVG."""
         ctx = [{"context_number": "[001]"}]
         result = _generate_harris_matrix_svg(ctx)
-        assert result is None
+        assert result is not None
+        assert result.startswith("<svg")
 
     def test_single_edge(self) -> None:
         ctx = [
@@ -150,9 +152,8 @@ class TestHarrisMatrix:
             {"context_number": "[002]", "cut_by": ["[001]"]},
         ]
         result = _generate_harris_matrix_svg(ctx)
-        # May be None if graphviz not installed
-        if result is not None:
-            assert "svg" in result.lower() or "<svg" in result
+        assert result is not None
+        assert "<svg" in result
 
     def test_multiple_relationships(self) -> None:
         ctx = [
@@ -161,8 +162,8 @@ class TestHarrisMatrix:
             {"context_number": "[003]", "cut_by": ["[002]"]},
         ]
         result = _generate_harris_matrix_svg(ctx)
-        if result is not None:
-            assert "svg" in result.lower() or "<svg" in result
+        assert result is not None
+        assert "<svg" in result
 
 
 # ── Bibliography ─────────────────────────────────────────────────────────────
