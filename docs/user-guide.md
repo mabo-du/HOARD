@@ -389,21 +389,21 @@ mandatory_sections:
 
 ### Phase 1: Multi-Modal Digitisation *(GPU-dependent)*
 
-- Handwritten text recognition via TrOCR
-- Form and checkbox extraction via Chandra OCR 2
-- Complex table parsing via MinerU2.5-Pro
-- Distortion correction via PaddleOCR-VL-1.5
+- Distortion correction via PaddleOCR-VL-1.5 (conditional — only when flagged)
+- Holistic layout + handwriting + checkbox extraction via Chandra OCR 2
+- Complex table parsing via MinerU2.5-Pro-2604-1.2B
+- All models load sequentially; peak VRAM ~2.8 GB
 
 ### Phase 2: Spatial Reconstruction *(GPU-dependent)*
 
-- Photo captioning and visual grounding via Gemma 4-E2B
-- Sketch-to-CAD geometry generation via Zero-To-CAD
-- CadQuery sandbox validation
+- Initial visual grounding (bounding box extraction) via Florence-2-large
+- Semantic captioning + cross-check vs. context sheets via Qwen3-VL-4B-Instruct
+- Digital geometry from field drawings via 2D SVG vectorization (primary) or Build123d (optional 3D)
 
 ### Phase 3: Synthesis & Drafting *(GPU-dependent)*
 
 - Context assembly from all Phase 1-2 outputs
-- Structured Markdown draft via Qwen3.5-4B (Thinking Mode)
+- Structured Markdown draft via Qwen3-4B-Thinking-2507 (262K context)
 - Human review triggers for uncertainty and conflicts
 - Chunk-and-merge for large sites (500+ contexts)
 
@@ -510,22 +510,23 @@ Models are downloaded automatically on first use via HuggingFace.
 For offline environments, pre-download:
 
 ```bash
-python -c "
-from huggingface_hub import snapshot_download
-snapshot_download('microsoft/trocr-base-handwritten')
-snapshot_download('unsloth/gemma-4-E2B-it-GGUF')
-# ... etc
-"
+pip install huggingface-hub
+huggingface-cli download datalab-to/chandra-ocr-2
+huggingface-cli download opendatalab/MinerU2.5-Pro-2604-1.2B
+huggingface-cli download Qwen/Qwen3-VL-4B-Instruct-GGUF
+huggingface-cli download Qwen/Qwen3-4B-Thinking-2507-GGUF
+huggingface-cli download unsloth/gemma-4-E2B-it-GGUF
+huggingface-cli download microsoft/Florence-2-large
 ```
 
 ### VRAM budget
 
-| Phase | Peak VRAM | Model |
-|-------|-----------|-------|
-| 1 | ~1.8 GB | MinerU2.5-Pro (table parsing) |
-| 2 | ~2.1 GB | Gemma 4-E2B (visual grounding) |
-| 3 | ~3.7 GB | Qwen3.5-4B + KV cache |
-| 4 | ~2.1 GB | Gemma 4-E2B (compliance) |
+| Phase | Peak VRAM | Model(s) |
+|-------|-----------|---------|
+| 1 | ~2.8 GB | Chandra OCR 2 (holistic layout + handwriting + forms) |
+| 2 | ~2.9 GB | Qwen3-VL-4B-Instruct (visual grounding + captioning) |
+| 3 | ~5.1 GB | Qwen3-4B-Thinking-2507 + 85k KV cache |
+| 4 | ~2.1 GB | Gemma 4-E2B (compliance refinement) |
 
 Models load and clear sequentially — peak VRAM never exceeds the single
 largest model at any moment.
