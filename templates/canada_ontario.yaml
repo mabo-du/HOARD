@@ -1,11 +1,14 @@
 # HOARD Jurisdiction Template: Canada — Ontario Heritage Standards
 # Based on: Ontario Heritage Act, Standards and Guidelines for Consultant Archaeologists (2011)
 #           Ministry of Citizenship and Multiculturalism (MCM) guidelines
-#           Canadian Archaeological Association principles
-# Version: 2024
+# Updated Mar 2026: ERO 026-0216 proposed amendments — exact mandatory phrasing
+#                   for Stage 4 recommendations, 50m buffer for partial clearance,
+#                   new limited assessment Stage 1/2 procedures, mandatory site
+#                   update form submission after Stage 2.
+# Version: 2026
 
 jurisdiction: "Canada — Ontario (Standards and Guidelines for Consultant Archaeologists, 2011)"
-version: "2024"
+version: "2026"
 
 mandatory_sections:
   - id: executive_summary
@@ -100,6 +103,16 @@ mandatory_sections:
       - site_significance
       - completion_requirements       # Documentation, curation, reporting compliance
       - recommendations
+      - stage4_recommendation_phrasing # Mar 2026: exact specified language mandated
+      - partial_clearance_buffer_50m  # Mar 2026: 50m buffer must be explicitly documented
+      - limited_assessment_rationale  # Mar 2026: new limited assessment standard
+
+  - id: site_update_form
+    label: "Site Update Form Confirmation"
+    required_fields:
+      - site_update_form_submitted    # Mar 2026: mandatory after Stage 2
+      - stage_2_inspection_date
+      - registered_site_relocated
 
   - id: bibliography
     label: "References"

@@ -1,10 +1,14 @@
 # HOARD Jurisdiction Template: Netherlands — KNA (Kwaliteitsnorm Nederlandse Archeologie)
-# Based on: KNA 4.1 / 5.0 standards (Basisopgraving, Definitief Onderzoek)
+# Based on: KNA 5.0 standards (modular framework, transitioning from KNA 4.1)
 #           Rijksdienst voor het Cultureel Erfgoed (RCE) guidelines
-# Version: 2024
+# Updated Mar 2026: KNA Leidraden voor Karterend Booronderzoek en
+#                   Proefsleuvenonderzoek officially renewed (26 March 2026).
+#                   KNA 5.0 emphasises modular reporting — sections may be
+#                   reordered or omitted based on investigation type.
+# Version: 2026
 
 jurisdiction: "Netherlands — KNA (Kwaliteitsnorm Nederlandse Archeologie, 5.0)"
-version: "2024"
+version: "2026"
 
 mandatory_sections:
   - id: executive_summary
@@ -103,6 +107,16 @@ appendices:
     label: "Profieltekeningen (Section Drawings)"
     auto_generate: false
     note: "Append digitised section drawings"
+
+# KNA 5.0 modular reporting: sections may be dynamically restructured
+# based on investigation type (coring vs. trial trenching vs. excavation).
+# The compliance engine should permit flexible section ordering and
+# optional omission of non-applicable modules.
+kna_modular_reporting: true
+kna_leidraad_renewed: "2026-03-26"
+kna_applicable_leidraden:
+  - karterend_booronderzoek       # Coring survey (renewed Mar 2026)
+  - proefsleuvenonderzoek          # Trial trenching (renewed Mar 2026)
 
 heading_style: "sentence_case"
 figure_caption_format: "Afb. {n}: {description}. Schaal 1:{scale} tenzij anders vermeld."

@@ -20,6 +20,7 @@ from erd.ark.mapping import (
     ARK_PHOTOS_FIELDS,
     _build_lookup,
 )
+from erd.ark.semantic_mapper import ArkSemanticMapper, map_headers_semantic
 from erd.config import Config
 
 
@@ -473,3 +474,75 @@ class TestWarningsAndErrors:
         result = import_ark_export(cfg)
         assert result.files_found == 1  # only context.csv matched
         assert result.total_records == 1
+
+
+# ── Semantic mapper tests ──────────────────────────────────────────────────
+
+SEMANTIC_SKIP_REASON = "sentence-transformers not installed"
+
+
+class TestSemanticMapper:
+    """Tests for the semantic embedding-based header mapper.
+
+    These tests verify that the semantic mapper can recognise ARK column
+    names that don't appear in the static mapping table but are semantically
+    similar to known HOARD fields.
+    """
+
+    def test_mapper_instantiation(self) -> None:
+        mapper = ArkSemanticMapper()
+        assert mapper is not None
+        assert mapper._available is None  # lazy load
+
+    def test_maps_unseen_variant(self) -> None:
+        """Recognise 'ctx_id' and 'trench_name' as HOARD fields."""
+        result = map_headers_semantic(["ctx_id", "trench_name", "deposit_description"], "context")
+        # All three should be mapped to SOME HOARD field
+        assert len(result) >= 2
+        # ctx_id should match a context-related field
+        assert any("context" in k or "number" in k for k in result)
+
+    def test_maps_context_variant(self) -> None:
+        """Handle 'ctx_description' as a text/notes field."""
+        result = map_headers_semantic(["ctx_description", "recorded_by_initials"], "context")
+        assert len(result) == 2
+        # ctx_description -> some text field, recorded_by_initials -> recorder
+        assert "recorded_by" in result
+
+    def test_maps_finds_variant(self) -> None:
+        """Handle 'sf_number' as find_number, 'object_material' as material."""
+        result = map_headers_semantic(["sf_number", "object_material", "item_count"], "finds")
+        assert "find_number" in result
+        assert "material" in result
+        assert "quantity" in result
+
+    def test_maps_photo_variant(self) -> None:
+        """Handle 'image_filename', 'view_direction', 'photo_notes'."""
+        result = map_headers_semantic(["image_filename", "view_direction", "photo_notes"], "photos")
+        assert "filename" in result
+        assert "direction" in result
+        # photo_notes should map to a text/notes field
+        assert len(result) == 3
+
+    def test_exact_matches_still_work(self) -> None:
+        """Semantic mapper can match exact known fields too."""
+        result = map_headers_semantic(["context_id", "trench", "description"], "context")
+        assert result.get("context_number") == "context_id"
+        assert result.get("trench") == "trench"
+        assert result.get("description") == "description"
+
+    def test_empty_header_list(self) -> None:
+        """Empty header list should return empty dict, not crash."""
+        result = map_headers_semantic([], "context")
+        assert result == {}
+
+    def test_semantic_fills_unrecognised_in_full_pipeline(self) -> None:
+        """Integration: guess_mapping_from_header uses semantic mapper to fill
+        columns not in the static mapping table."""
+        # 'ctx_id' and 'deposit_description' are NOT in the static mapping table
+        header = ["ctx_id", "trench_code", "deposit_description"]
+        result = guess_mapping_from_header(header, ARK_CONTEXT_FIELDS)
+        assert "context_number" in result  # from semantic fallback
+        assert "trench" in result          # from exact match
+        # Semantic mapper should fill at least one more field beyond exact matches
+        assert len(result) >= 3            # ctx_id + trench_code + deposit_description

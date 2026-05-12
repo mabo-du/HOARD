@@ -1,10 +1,13 @@
 # HOARD Jurisdiction Template: Historic England — Evaluation (CL3 compliant)
 # Based on: Historic England's "Management of Research Projects in the Historic Environment"
 #           and "Creating a Digital Archive" guidance.
-# Version: 2024
+# Updated Dec 2025: Environmental Archaeology framework revision (palaeoenvironmental
+#                   sampling strategies, waterlogged wood conservation protocols)
+# Updated Feb 2026: Managing Archaeology in London (GLAAS) guidance revision
+# Version: 2026
 
 jurisdiction: "Historic England — Evaluation (CL3 compliant)"
-version: "2024"
+version: "2026"
 
 # ── Mandatory Sections ─────────────────────────────────────────────────────
 # Each section must appear in the final report in this order.
@@ -44,6 +47,9 @@ mandatory_sections:
       - finds_policy
       - sample_policy
       - palaeoenvironmental_policy
+      - waterlogged_wood_protocol    # Dec 2025: revised waterlogged wood conservation
+      - environmental_sampling_strategy # Dec 2025: expanded env. archaeology framework
+      - palaeoenvironmental_assessment_method # Dec 2025: new mandatory heading
 
   - id: results_by_period
     label: "Results"

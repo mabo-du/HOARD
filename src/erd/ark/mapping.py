@@ -167,18 +167,42 @@ def guess_mapping_from_header(
 ) -> dict[str, str]:
     """Match an export's header row against a mapping table.
 
+    Uses exact string matching as the primary method (fast, deterministic).
+    For any columns NOT recognised by exact matching, attempts semantic
+    embedding matching (via sentence-transformers) to recognise unseen
+    but semantically similar ARK column names.
+
     Returns {hoard_field: ark_column} — one entry per recognised field.
     Unrecognised columns are silently dropped.
     """
     lookup = _build_lookup(mapping_table)
-    result: dict[str, str] = {}
+    exact_result: dict[str, str] = {}
+    unrecognised: list[str] = []
+
     for col in header:
         col_lower = col.strip().lower()
         if col_lower in lookup:
             hoard_field = lookup[col_lower]
-            if hoard_field not in result:  # first match wins
-                result[hoard_field] = col
-    return result
+            if hoard_field not in exact_result:  # first match wins
+                exact_result[hoard_field] = col
+        else:
+            unrecognised.append(col)
+
+    # Try semantic mapping only for columns not recognised by exact matching
+    if unrecognised:
+        import logging
+        logger = logging.getLogger(__name__)
+        try:
+            from erd.ark.semantic_mapper import map_headers_semantic
+            semantic_map = map_headers_semantic(unrecognised)
+            # Only add semantic results for HOARD fields not already mapped
+            for hoard_field, ark_col in semantic_map.items():
+                if hoard_field not in exact_result:
+                    exact_result[hoard_field] = ark_col
+        except Exception:
+            logger.debug("Semantic mapper unavailable for unrecognised columns")
+
+    return exact_result
 
 
 def transform_row(

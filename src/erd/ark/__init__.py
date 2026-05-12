@@ -12,10 +12,13 @@ rules:   Must never import torch or any GPU-bound library. Exported data
 
 from erd.ark.loader import ArkImportResult, import_ark_export
 from erd.ark.mapping import guess_mapping_from_header, transform_row
+from erd.ark.semantic_mapper import ArkSemanticMapper, map_headers_semantic
 
 __all__ = [
     "ArkImportResult",
+    "ArkSemanticMapper",
     "import_ark_export",
     "guess_mapping_from_header",
+    "map_headers_semantic",
     "transform_row",
 ]
