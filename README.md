@@ -45,6 +45,7 @@ Phases 0 and 5 are fully implemented (no GPU). GPU-dependent phases (1–4) will
 | `erd run --project <id>` | Run the pipeline (full or partial) |
 | `erd run --project <id> --phase <N>` | Run a single phase |
 | `erd run --project <id> --from-phase <N>` | Run from phase N onward |
+| `erd import-ark --project <id> --input <dir>` | Import structured data from ARK system exports (bypasses Phase 0/1) |
 | `erd review --project <id>` | Interactive review dashboard for flagged items |
 | `erd export --project <id> --format docx,pdf` | Export final report |
 | `erd templates list` | List available jurisdiction templates |
@@ -87,6 +88,8 @@ Adding a new jurisdiction means writing a YAML file — no pipeline code changes
 | — | Template engine | ✅ Complete — 14 jurisdiction templates |
 | — | Review dashboard | ✅ Complete — interactive Rich TUI |
 | — | Harris Matrix | ✅ Complete — pure-Python SVG generator |
+| — | ARK direct data input | ✅ Complete — bypass Phase 0/1 for digital-first sites |
+| — | CONTRIBUTING.md | ✅ Complete — development setup guide |
 | — | User guide | ✅ Complete — see `docs/user-guide.md` |
 
 GPU-dependent phases will be available after model training completes.
@@ -120,6 +123,30 @@ erd run --project stoneyfield_2026 --phase 5
 
 Colour-coded by period, arrows pointing from later to earlier contexts. Pure Python — no graphviz required.
 
+## ARK Direct Data Input
+
+For excavations already using the **ARK** (Archaeological Recording Kit) digital
+recording system, HOARD can import structured data directly — bypassing Phase 0
+file triage and Phase 1 OCR entirely:
+
+```bash
+erd import-ark --project stoneyfield_2026 --input ./ark_exports/
+```
+
+Accepts CSV or JSON exports for **5 ARK table types:**
+- **Context sheets** — context numbers, descriptions, interpretations, periods
+- **Finds catalogues** — object types, materials, quantities, weights
+- **Sample registers** — sample numbers, types, volumes, processing status
+- **Photo logs** — filenames, context links, directions, descriptions
+- **Drawing registers** — drawing numbers, types, scales, draughtspersons
+
+Field names are matched case-insensitively against common ARK conventions —
+custom ARK instance fields are recognised automatically. Unrecognised columns
+are warned but don't block the import.
+
+After import, Phases 0 and 1 are marked as **bypassed** in pipeline state,
+and you can proceed directly to Phase 2+.
+
 ## Documentation
 
 Full documentation is available in [`docs/user-guide.md`](docs/user-guide.md), covering:
@@ -128,6 +155,7 @@ Full documentation is available in [`docs/user-guide.md`](docs/user-guide.md), c
 - Pipeline phase walkthrough
 - Jurisdiction template guide (all 14)
 - Review dashboard and Harris Matrix usage
+- **ARK direct data input**
 - GPU setup and troubleshooting
 
 ## Licence

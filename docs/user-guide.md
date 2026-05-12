@@ -12,14 +12,15 @@ grey literature reports.
 2. [Quick Start](#quick-start)
 3. [Project Initialisation](#project-initialisation)
 4. [Running the Pipeline](#running-the-pipeline)
-5. [Reviewing Flags](#reviewing-flags)
-6. [Exporting Reports](#exporting-reports)
-7. [Jurisdiction Templates](#jurisdiction-templates)
-8. [Pipeline Phases](#pipeline-phases)
-9. [Harris Matrix](#harris-matrix)
-10. [Configuration](#configuration)
-11. [GPU Setup](#gpu-setup)
-12. [Troubleshooting](#troubleshooting)
+5. [ARK Direct Data Input](#ark-direct-data-input)
+6. [Reviewing Flags](#reviewing-flags)
+7. [Exporting Reports](#exporting-reports)
+8. [Jurisdiction Templates](#jurisdiction-templates)
+9. [Pipeline Phases](#pipeline-phases)
+10. [Harris Matrix](#harris-matrix)
+11. [Configuration](#configuration)
+12. [GPU Setup](#gpu-setup)
+13. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -87,8 +88,12 @@ erd init "Stoneyfield Farm 2026" --jurisdiction historic_england_cl3
 #    - Site photographs (JPG, PNG)
 #    - Plans and section drawings (PDF, SVG, PNG)
 
-# 3. Run Phase 0 (Ingestion & Triage — no GPU needed)
+# 3a. Option A — Run Phase 0 for paper field records (no GPU needed)
 erd run --project stoneyfield_2026 --phase 0
+
+# 3b. Option B — Import from ARK if your site uses digital recording
+#     (bypasses Phase 0 and Phase 1 OCR entirely)
+# erd import-ark --project stoneyfield_2026 --input ./ark_exports/
 
 # 4. Review any flagged items
 erd review --project stoneyfield_2026
@@ -144,6 +149,113 @@ To force re-run a phase, use `--phase` explicitly.
 | 3 | Synthesis & Drafting | ⏳ GPU-dependent |
 | 4 | Compliance Refinement | ⏳ GPU-dependent |
 | 5 | Assembly & Export | ✅ Complete (no GPU) |
+
+---
+
+## ARK Direct Data Input
+
+For excavations already using the **ARK (Archaeological Recording Kit)** digital
+recording system, HOARD can import structured excavation data directly —
+bypassing Phase 0 (file ingestion) and Phase 1 (OCR) entirely.
+
+### When to Use ARK Import
+
+Use `erd import-ark` when your excavation already records data digitally using
+ARK or compatible systems. This applies to most commercial archaeology units
+and many research excavations. The import saves approximately 2–4 hours of
+pipeline time by skipping file triage and OCR for those records.
+
+ARK import handles **5 data types:**
+
+| Table | ARK Export File | Records Created |
+|-------|-----------------|-----------------|
+| Context sheets | `context.csv` / `contexts.csv` / `ctx_register.csv` | Context descriptions, interpretations, periods, dimensions |
+| Finds catalogue | `finds.csv` / `finds_catalogue.csv` / `sf_register.csv` | Object types, materials, quantities, weights |
+| Sample register | `samples.csv` / `sample.csv` / `environmental.csv` | Sample types, volumes, processing status |
+| Photo log | `photos.csv` / `photo.csv` / `photo_log.csv` | Filenames, context links, directions |
+| Drawing register | `drawings.csv` / `drawing.csv` / `plans.csv` | Drawing numbers, types, scales, draughtspersons |
+
+### Basic Usage
+
+```bash
+cd my_project
+erd import-ark --project stoneyfield_2026 --input ./ark_export/
+```
+
+Where `./ark_export/` contains the CSV or JSON files exported from ARK.
+
+### Supported Formats
+
+- **CSV** — standard comma-separated with header row. UTF-8 BOM is handled
+  automatically. Common ARK field name variants are recognised.
+- **JSON** — top-level arrays or wrapped in `{"data": [...]}` / `{"results": [...]}`
+  (matching common ARK JSON export formats).
+
+### Field Mapping
+
+HOARD recognises ARK field names case-insensitively and maps them to the
+internal schema. Common variants are pre-configured:
+
+| ARK Source Field | Mapped To | Example |
+|------------------|-----------|---------|
+| `context_id`, `context_number`, `context_no`, `context`, `ctx` | `context_number` | `1001` |
+| `trench_code`, `trench` | `trench` | `T1` |
+| `object_type`, `object`, `type` (finds) | `object_type` | `Pottery` |
+| `quantity`, `count`, `qty` | `quantity` | `12` |
+| `weight_g`, `weight` | `weight_g` | `45.2` |
+| `sample_type`, `type` (samples) | `sample_type` | `Bulk soil` |
+| `file_name`, `filename`, `image` | `filename` | `IMG_101.jpg` |
+| `drawing_no`, `drawing_number` | `drawing_number` | `D001` |
+
+Unrecognised columns produce a warning but do not block the import. If your
+ARK instance uses custom field names not in the mapping table, the import
+still succeeds for all recognised fields — the unrecognised data is preserved
+in the original export for offline reference.
+
+### After Import
+
+Once the import completes:
+
+1. A **manifest** is written to `00_manifest/manifest.json` with synthetic
+   file entries for each ARK table.
+2. **Digitised records** are written to `01_digitised/` as individual JSON
+   files — one per ARK row — matching the format expected by Phase 5
+   assembly.
+3. **Pipeline state** marks Phase 0 and Phase 1 as **bypassed**:
+
+```
+Phases 0 and 1 have been marked as bypassed. You can proceed
+with Phase 2+ as normal.
+```
+
+You can then run subsequent phases directly:
+
+```bash
+# Skip straight to Phase 5 assembly (no GPU needed)
+erd run --project stoneyfield_2026 --phase 5
+```
+
+When GPU models become available, you can run Phase 2+ normally:
+
+```bash
+erd run --project stoneyfield_2026 --from-phase 2
+```
+
+### Output Example
+
+```json
+// 01_digitised/context_0000.json
+{
+    "_source": "context",
+    "_ark_fields_mapped": 6,
+    "context_number": "1001",
+    "trench": "T1",
+    "description": "Dark brown silty clay",
+    "interpretation": "Colluvial layer",
+    "period": "Medieval",
+    "context_type": "layer"
+}
+```
 
 ---
 
@@ -482,6 +594,7 @@ erd <command> [options]
 |---------|-------------|
 | `init` | Initialise a new project |
 | `run` | Run the pipeline (full or partial) |
+| `import-ark` | Import structured data from ARK system exports |
 | `review` | Open the review dashboard |
 | `export` | Export final report |
 | `templates` | List, show, or validate templates |
@@ -514,6 +627,22 @@ erd run [options]
 | `--phase` | — | Run single phase only |
 | `--from-phase` | — | Run from phase N onward |
 | `--workspace` / `-w` | `./erd_workspace` | Workspace root |
+
+### `erd import-ark`
+
+```bash
+erd import-ark [options]
+```
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--project` / `-p` | — | Project ID (required) |
+| `--input` / `-i` | `./input` | Directory containing ARK export files |
+| `--workspace` / `-w` | `./erd_workspace` | Workspace root |
+
+Accepts CSV or JSON exports. Recognises context sheets, finds catalogues,
+sample registers, photo logs, and drawing registers. Marks Phase 0 and Phase 1
+as bypassed in pipeline state.
 
 ### `erd review`
 
