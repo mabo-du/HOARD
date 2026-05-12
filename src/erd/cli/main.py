@@ -115,6 +115,83 @@ def run(
         run_pipeline(cfg)
 
 
+@app.command(name="import-ark")
+def import_ark(
+    project: str = typer.Option(..., "--project", "-p", help="Project ID"),
+    input_dir: str = typer.Option(
+        "./input", "--input", "-i",
+        help="Directory containing ARK export files (context.csv, finds.csv, etc.)",
+    ),
+    workspace: str = typer.Option(
+        "./erd_workspace", "--workspace", "-w",
+        help="Working directory root",
+    ),
+) -> None:
+    """Import structured data from ARK system exports.
+
+    Bypasses Phase 0 (file ingestion) and Phase 1 (OCR) for digital-first
+    excavations. Accepts CSV or JSON exports matching ARK conventions.
+    """
+    workspace_root = Path(workspace).resolve()
+    input_path = Path(input_dir).resolve()
+
+    if not input_path.is_dir():
+        console.print(f"[red]✗[/] Input directory not found: {input_path}")
+        raise typer.Exit(1)
+
+    cfg = Config(
+        project_id=project,
+        project_name=project,
+        jurisdiction="historic_england_cl3",
+        workspace_root=workspace_root,
+        input_dir=input_path,
+    )
+
+    project_dir = cfg.project_dir
+    project_dir.mkdir(parents=True, exist_ok=True)
+
+    from erd.ark import import_ark_export
+
+    result = import_ark_export(cfg)
+
+    if result.errors and result.total_records == 0:
+        console.print("[red]✗[/] ARK import failed.")
+        for err in result.errors:
+            console.print(f"  [red]•[/] {err}")
+        raise typer.Exit(1)
+
+    console.print(f"[green]✓[/] ARK import complete for [bold]{project}[/]")
+    console.print(f"  Files found:    {result.files_found}")
+    console.print(f"  Files parsed:   {result.files_parsed}")
+    console.print(f"  Records imported: {result.total_records}")
+
+    if result.records_by_type:
+        console.print("\n  [underline]By type:[/]")
+        for source_type, count in sorted(result.records_by_type.items()):
+            hoard_type = {
+                "context": "Context sheets",
+                "finds": "Finds catalogue",
+                "samples": "Sample records",
+                "photos": "Photo log",
+                "drawings": "Drawings/plans",
+            }.get(source_type, source_type)
+            console.print(f"    • {hoard_type}: {count}")
+
+    if result.warnings:
+        console.print("\n[yellow]Warnings:[/]")
+        for w in result.warnings:
+            console.print(f"  [yellow]•[/] {w}")
+
+    if result.errors:
+        console.print(f"\n[yellow]Errors ({len(result.errors)}):[/]")
+        for e in result.errors:
+            console.print(f"  [yellow]•[/] {e}")
+
+    console.print(f"\n  Manifest: {result.manifest_path}")
+    console.print("\n[yellow]ℹ[/] Phases 0 and 1 have been marked as bypassed. "
+                  "You can proceed with Phase 2+ as normal.")
+
+
 @app.command()
 def review(
     project: str = typer.Option(..., "--project", "-p", help="Project ID"),

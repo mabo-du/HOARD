@@ -73,18 +73,11 @@ Format: `- [ ] tNNN Description @owner #tag ~estimate risk:level logged:date`
 - [ ] t018 Implement Phase 4 compliance model runner (Gemma 4-E2B, section-by-section) @hoard #phase4 ~2h risk:med logged:2026-05-11
 - [ ] t019 Implement compliance checks: mandatory sections, prohibited terms, heading style @hoard #phase4 ~3h risk:med logged:2026-05-11
 - [ ] t020 Write Phase 4 unit tests @hoard #phase4 ~2h risk:med logged:2026-05-11
-- [ ] t021 Implement terminal-based review dashboard (rich/textual) @hoard #review ~4h risk:med logged:2026-05-11
-- [ ] t022 Implement flag review workflow (accept/correct/defer per flagged item) @hoard #review ~3h risk:med logged:2026-05-11
-- [ ] t023 Write review dashboard tests @hoard #review ~2h risk:low logged:2026-05-11
 - [ ] t024 Assemble integration test dataset (3 past excavations with known reports) @hoard #testing ~3h risk:low logged:2026-05-11
-- [ ] t025 Add Harris Matrix SVG generation from stratigraphic relationships @hoard #feature ~2h risk:med logged:2026-05-11
 - [ ] t026 Add ARK system direct data input (bypass Phase 1 OCR for digital-first sites) @hoard #feature ~4h risk:med logged:2026-05-11
-- [ ] t027 Configure PyPI publish workflow (GitHub Actions release → PyPI) @hoard #infra ~2h risk:low logged:2026-05-11
-- [ ] t028 Write user guide (CLI reference + pipeline walkthrough) @hoard #docs ~3h risk:low logged:2026-05-11
-- [ ] t029 Write CONTRIBUTING.md with development setup guide @hoard #docs ~1h risk:low logged:2026-05-11
 - [ ] t030 Benchmark full pipeline runtime against 6 GB VRAM target @hoard #testing ~2h risk:low logged:2026-05-11
 
-<!--TOON:backlog[30]{id,desc,owner,tags,est,risk,logged,status}:
+<!--TOON:backlog[23]{id,desc,owner,tags,est,risk,logged,status}:
 t001|Evaluate & select TrOCR variant|hoard|phase1|2h|med|2026-05-11|pending
 t002|Integrate HTRflow page segmenter|hoard|phase1|3h|med|2026-05-11|pending
 t003|Set up Chandra OCR 2 for forms|hoard|phase1|2h|med|2026-05-11|pending
@@ -105,15 +98,8 @@ t017|Phase 3 unit tests|hoard|phase3|2h|med|2026-05-11|pending
 t018|Phase 4 compliance model runner|hoard|phase4|2h|med|2026-05-11|pending
 t019|Phase 4 compliance checks|hoard|phase4|3h|med|2026-05-11|pending
 t020|Phase 4 unit tests|hoard|phase4|2h|med|2026-05-11|pending
-t021|Terminal review dashboard|hoard|review|4h|med|2026-05-11|pending
-t022|Flag review workflow|hoard|review|3h|med|2026-05-11|pending
-t023|Review dashboard tests|hoard|review|2h|low|2026-05-11|pending
 t024|Integration test dataset assembly|hoard|testing|3h|low|2026-05-11|pending
-t025|Harris Matrix SVG generation|hoard|feature|2h|med|2026-05-11|pending
 t026|ARK system direct data input|hoard|feature|4h|med|2026-05-11|pending
-t027|PyPI publish workflow|hoard|infra|2h|low|2026-05-11|pending
-t028|User guide|hoard|docs|3h|low|2026-05-11|pending
-t029|CONTRIBUTING.md|hoard|docs|1h|low|2026-05-11|pending
 t030|Full pipeline VRAM benchmark|hoard|testing|2h|low|2026-05-11|pending
 -->
 
@@ -129,13 +115,27 @@ t030|Full pipeline VRAM benchmark|hoard|testing|2h|low|2026-05-11|pending
 
 ## Done
 
+- [x] t021 Terminal review dashboard (Rich TUI, accept/edit/defer) ~4h actual:4h logged:2026-05-11 completed:2026-05-13
+- [x] t022 Flag review workflow (accept/correct/defer per item) ~3h actual:3h logged:2026-05-11 completed:2026-05-13
+- [x] t023 Review dashboard tests (12 tests, 305 lines) ~2h actual:2h logged:2026-05-11 completed:2026-05-13
+- [x] t025 Harris Matrix SVG generation (pure-Python, no graphviz) ~2h actual:2h logged:2026-05-11 completed:2026-05-13
+- [x] t027 PyPI publish workflow (GitHub Actions release -> PyPI) ~2h actual:1h logged:2026-05-11 completed:2026-05-13
+- [x] t028 User guide (CLI reference + pipeline walkthrough, 591 lines) ~3h actual:3h logged:2026-05-11 completed:2026-05-13
+- [x] t029 CONTRIBUTING.md with development setup guide ~1h actual:1h logged:2026-05-13 completed:2026-05-13
 - [x] t031 Phase 0: Ingestion & Triage (rule-based, no GPU) ~8h actual:8h logged:2026-05-09 completed:2026-05-09
 - [x] t032 Phase 5: Assembly & Export (rule-based, no GPU) ~6h actual:6h logged:2026-05-09 completed:2026-05-09
 - [x] t033 Template engine with 14 jurisdiction templates ~4h actual:4h logged:2026-05-09 completed:2026-05-09
 - [x] t034 GitHub Actions CI workflow (lint + test + type-check) ~1h actual:1h logged:2026-05-11 completed:2026-05-11
 - [x] t035 GitHub repo migration + remote setup ~1h actual:1h logged:2026-05-11 completed:2026-05-11
 
-<!--TOON:done[5]{id,desc,owner,tags,est,actual,logged,started,completed,status}:
+<!--TOON:done[12]{id,desc,owner,tags,est,actual,logged,started,completed,status}:
+t021|Terminal review dashboard|hoard|review|4h|4h|2026-05-11||2026-05-13|completed
+t022|Flag review workflow|hoard|review|3h|3h|2026-05-11||2026-05-13|completed
+t023|Review dashboard tests|hoard|review|2h|2h|2026-05-11||2026-05-13|completed
+t025|Harris Matrix SVG generation|hoard|feature|2h|2h|2026-05-11||2026-05-13|completed
+t027|PyPI publish workflow|hoard|infra|2h|1h|2026-05-11||2026-05-13|completed
+t028|User guide|hoard|docs|3h|3h|2026-05-11||2026-05-13|completed
+t029|CONTRIBUTING.md|hoard|docs|1h|1h|2026-05-13||2026-05-13|completed
 t031|Phase 0: Ingestion & Triage|hoard|phase0|8h|8h|2026-05-09|2026-05-09|2026-05-09|completed
 t032|Phase 5: Assembly & Export|hoard|phase5|6h|6h|2026-05-09|2026-05-09|2026-05-09|completed
 t033|Template engine + 14 jurisdiction templates|hoard|templates|4h|4h|2026-05-09|2026-05-09|2026-05-09|completed
@@ -162,8 +162,6 @@ t016|blocked-by|t013
 t017|blocked-by|t013
 t019|blocked-by|t018
 t020|blocked-by|t019
-t022|blocked-by|t021
-t023|blocked-by|t022
 t024|blocked-by|t007
 t024|blocked-by|t011
 t024|blocked-by|t017
@@ -176,5 +174,5 @@ t008|t009
 <!--/TOON:subtasks-->
 
 <!--TOON:summary{total,ready,pending,in_progress,in_review,done,declined,total_est,total_actual}:
-35,0,27,0,0,8,0,72h,30h
+35,0,23,0,0,12,0,72h,36h
 -->
