@@ -25,6 +25,7 @@ class Config:
     jurisdiction: str
     workspace_root: Path
     input_dir: Path
+    strict: bool = False
 
     @property
     def project_dir(self) -> Path:

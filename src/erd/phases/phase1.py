@@ -559,9 +559,19 @@ def run_phase1(config: Config) -> dict[str, Any]:
     # Validate outputs against schema contract (v1)
     validated, errors = _validate_context_schema(output_dir)
     if errors:
-        logger.warning(f"Schema validation: {validated}/{validated + len(errors)} passed")
+        msg = f"Schema validation: {validated}/{validated + len(errors)} passed"
+        logger.warning(msg)
         for err in errors[:5]:
             logger.warning(f"  Schema error: {err}")
+
+        if config.strict:
+            summary["status"] = "failed"
+            summary["schema_validation"] = {
+                "valid": validated,
+                "errors": errors,
+            }
+            logger.error(f"Strict mode: {len(errors)} schema validation error(s) — halting")
+            return summary
 
     logger.info(f"Phase 1 complete: {processed_count} processed, {failed_count} failed in {duration_ms/1000:.1f}s")
 

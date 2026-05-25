@@ -87,6 +87,10 @@ def run(
         "./input", "--input", "-i",
         help="Directory containing field records",
     ),
+    strict: bool = typer.Option(
+        False, "--strict", "-s",
+        help="Halt Phase 1 if schema contract validation fails",
+    ),
     phase: int | None = typer.Option(None, "--phase", help="Run a single phase only"),
     from_phase: int | None = typer.Option(
         None, "--from-phase", help="Run from this phase onward",
@@ -107,6 +111,7 @@ def run(
         jurisdiction="historic_england_cl3",
         workspace_root=workspace_root,
         input_dir=input_path,
+        strict=strict,
     )
 
     if phase is not None:
