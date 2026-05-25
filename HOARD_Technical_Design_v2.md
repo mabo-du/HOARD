@@ -2,13 +2,13 @@ HOARD: Heritage Observation And Report Drafter
 
 **Technical Design Document**
 
-*Local Multi-Stage Pipeline · 6 GB VRAM Target · v2.0*
+*Local Multi-Stage Pipeline · 6 GB VRAM Target (8 GB VRAM verified) · v2.0*
 
  
 
 Revised: 25 May 2026  ·  Status: Draft for Review
 
-*Updated to reflect 2026 Deep Research findings (Rounds 1-4): Chandra OCR 2 replaces TrOCR+HTRflow; Qwen3.5-4B (QLoRA fine-tuned) replaces Qwen3-4B-Thinking-2507; semantic ARK header mapping; jurisdiction template updates for England (Dec 2025/Feb 2026), Netherlands KNA 5.0 (Mar 2026), Ontario ERO 026-0216 (Mar 2026); Phase 3 fine-tuning strategy via Unsloth/QLoRA; Phase 4 RAG-based compliance (no fine-tune); Phase 5 Markdown→Jinja→WeasyPrint document generation pipeline with specialist appendix deterministic NLG.*
+*Updated to reflect 2026 Deep Research findings (Rounds 1-5): Phase 1: GLM-OCR + Granite-Docling replaces Chandra OCR 2 + MinerU (licensing compliance); Qwen3.5-4B (prompt-engineered, fine-tuning deferred) replaces Qwen3-4B-Thinking-2507; semantic ARK header mapping; jurisdiction template updates for England (Dec 2025/Feb 2026), Netherlands KNA 5.0 (Mar 2026), Ontario ERO 026-0216 (Mar 2026); Phase 4 RAG-based compliance (no fine-tune); Phase 5 Markdown→Jinja→WeasyPrint document generation pipeline with specialist appendix deterministic NLG.*
 
 
 # **Document Purpose & Scope**
@@ -30,11 +30,11 @@ The pipeline consists of five discrete phases plus a final assembly step. Each p
 | **Phase** | **Name** | **Input** | **Output** | **Primary Model(s)** |
 | - | - | - | - | - |
 | 0 | Ingestion & Triage | Raw files (PDF, JPG, PNG, CSV) | File manifest JSON + quality flags | Rule-based + ARK semantic mapper |
-| 1 | Multi-Modal Digitisation | Scanned images, photos | Structured JSON + Markdown tables | PaddleOCR-VL-1.5 + MinerU2.5-Pro + Chandra OCR 2 |
+| 1 | Multi-Modal Digitisation | Scanned images, photos, PDFs | Structured JSON + Markdown tables | GLM-OCR (handwriting/forms) + Granite-Docling-258M (tables) + Qwen3-VL-4B (fallback) |
 | 2 | Spatial Reconstruction | Plans, sections, drawings | CadQuery Python + annotated images | Zero-To-CAD + Gemma 4-E2B |
 | 3 | Synthesis & Drafting | All Phase 1-2 outputs | Structured draft (Markdown) | Qwen3.5-4B (QLoRA fine-tuned on ADS grey literature corpus) |
 | 4 | Compliance Refinement | Draft + jurisdiction template + RAG vector store | Compliant report (Markdown) | Gemma 4-E2B (prompt-engineered, NOT fine-tuned) + lightweight RAG over current template docs |
-| 5 | Assembly & Export | Refined report + assets | Final DOCX + PDF/A-2b + archive ZIP | Hybrid: docxtpl (DOCX) + WeasyPrint (PDF/A-2b) + rectpack/Graphviz (figures) + pyHanko (signatures) |
+| 5 | Assembly & Export | Refined report + assets | Final DOCX + PDF/A-2b + archive ZIP | Hybrid: python-docx (DOCX) + WeasyPrint (PDF/A-2b) + rectpack/Graphviz (figures) + pyHanko (signatures) |
 
 
 ## **Working Directory Structure**
@@ -98,102 +98,159 @@ The pipeline accepts the following input types, placed in an ./input/ directory 
 
 
 
-| **PHASE** **1** | **Multi-Modal Digitisation** *Convert physical records into structured JSON and Markdown — the data substrate for all later phases* |
+| **PHASE** **1** | **Multi-Modal Digitisation** *Convert physical records into structured JSON — the data substrate for all later phases* |
 | :-: | - |
 
 
 ## **Overview**
 
-As of 2026, the paradigm of document digitisation has shifted decisively from cascaded, task-specific neural networks toward unified Vision-Language Models (VLMs). Three specialist models handle different aspects of document extraction, running strictly sequentially — each loading and clearing before the next. The routing decision is made deterministically from the manifest type field and the quality flags set in Phase 0.
+Phase 1 transforms scanned archaeological documents into structured JSON. Rather than a fixed cascade of models, it uses a **tri-partite routing strategy** driven by the Phase 0 manifest. Each document type is routed to the specialist model best suited for it. VRAM is managed via Ollama's `keep_alive` parameter rather than llama.cpp router mode (which suffers race conditions on sub-12GB cards).
+
+## **Key Research Finding (May 2026)**
+
+The landscape of document extraction has shifted decisively toward unified Vision-Language Models. Two critical licensing changes drove the model selection:
+
+| Model | Status | Reason |
+|---|---|---|
+| **Chandra OCR 2** | ❌ Rejected | OpenRAIL-M license imposes revenue cap ($2M) — blocks open-source distribution to CRM units |
+| **MinerU** | ❌ Rejected | AGPL-3.0 viral license requires source disclosure for network use — prohibitive for commercial CRM |
+| **PaddleOCR-VL-1.5** | ❌ Replaced | Modern VLMs handle distortion natively; no longer needed as separate pre-processor |
+| **GLM-OCR** (0.9B) | ✅ Adopted | MIT / Apache 2.0, 94.62 OmniDocBench, native JSON schema output, 2.2 GB VRAM |
+| **Granite-Docling-258M** | ✅ Adopted | Apache 2.0, <1 GB VRAM, replaces MinerU for table parsing without AGPL concerns |
+| **Qwen3-VL-4B** | ✅ Fallback | Apache 2.0, 4B params, used when GLM-OCR fails on degraded documents |
 
 ## **Model Routing Logic**
 
-| **File Type** | **Quality Flag?** | **Routed To** | **Reason** |
-| - | - | - | - |
-| context\_sheet | BLUR / SKEW | PaddleOCR-VL-1.5 first, then Chandra | PaddleOCR corrects distortion before form extraction |
-| context\_sheet | None | Chandra OCR 2 directly | Holistic layout + handwriting + checkbox extraction in a single pass |
-| finds\_form | Any | Chandra OCR 2 | Structured form with checkboxes, coded fields, and handwriting |
-| finds\_form | CSV | Direct parse (pandas) | No OCR needed for typed CSV — skip model entirely |
-| catalogue\_table | Any | MinerU2.5-Pro-2604-1.2B | Cross-page tables with artifact sketches need specialised table-aware parsing |
-| plan / section | Any | Gemma 4-E2B + Zero-To-CAD | Visual grounding then geometry — handled in Phase 2 |
-| site\_photo | Any | Gemma 4-E2B | Caption and object identification — handled in Phase 2 |
+| **Document Type** | **Routed To** | **Why** |
+|---|---|---|
+| context\_sheet (handwritten form) | GLM-OCR + Pydantic structured output | MIT license, native JSON schema adherence, fast Multi-Token Prediction |
+| finds\_catalogue (typed/printed) | Docling + Granite-Docling-258M | Apache 2.0, layout-aware table extraction, cross-page merging |
+| finds\_catalogue (CSV/XLSX) | pandas direct parse | Zero VRAM, faster than any model |
+| plan / section / site\_photo | Phase 2 (spatial) | Handled by Florence-2 + Qwen3-VL-4B in Phase 2 |
+| existing\_text (DOCX/TXT/MD) | Docling CPU parser | Zero VRAM, direct text ingestion |
+| Degraded / low-confidence | Qwen3-VL-4B fallback | 4B params, better resilience to noise, Apache 2.0 |
 
 
-## **1a — Distortion Correction (PaddleOCR-VL-1.5)**
+## **1a — Document Pre-Processing (CPU, zero VRAM)**
 
-PaddleOCR-VL-1.5 is not used as a primary digitisation model. It is invoked as a pre-processor only when the Phase 0 triage has flagged a document with BLUR\_LOW, SKEW\_HIGH, or EXPOSURE\_LOW. Its corrected output is then passed to Chandra OCR 2 for full extraction.
+Degraded archaeological documents (faint carbon copies, mud-stained sheets, poor photocopies) are pre-processed by CPU-bound OpenCV algorithms before VLM inference:
 
-| **Parameter** | **Value** |
-| - | - |
-| Model | PaddlePaddle/PaddleOCR-VL-1.5 |
-| VRAM footprint | ~1.8 GB (FP16/BF16) |
-| Function | Deskew, dewarp, histogram equalise; output corrected PNG |
-| When to invoke | Only when manifest contains BLUR\_LOW, SKEW\_HIGH, or EXPOSURE\_LOW flags |
-| Output | Corrected PNG saved to assets/ alongside original; manifest updated |
+| **Quality Flag** | **Algorithm** | **Effect** |
+|---|---|---|
+| SKEW\_HIGH | Hough Line Transform → affine rotation | Realigns skewed scans to horizontal |
+| EXPOSURE\_LOW / BLUR\_LOW | CLAHE (Contrast Limited Adaptive Histogram Equalization) | 8x8 tile contrast enhancement, pulls faint handwriting from muddy backgrounds |
+| Any flag | Adaptive thresholding + morphological opening/closing | Separates ink from background noise; bridges broken strokes in cursive |
+
+Images are also resized to a maximum of 2048px on the longest edge to prevent KV cache overflow in GLM-OCR (which requires `num_ctx` ≥ 16384 for high-res image processing).
 
 
-## **1b — Holistic Document Extraction (Chandra OCR 2)**
-
-Chandra OCR 2 is a 4-billion-parameter VLM (Vision-Language Model) purpose-built for complex, layout-aware document extraction. It replaces the legacy TrOCR + HTRflow + Chandra OCR 1 cascade with a single end-to-end pass. It outputs directly to structured Markdown and JSON while preserving strict spatial and layout information. In benchmark testing, Chandra OCR 2 leads the open-weights sector with 85.9% on the olmOCR benchmark, outperforming larger models like Gemini 2.5 Flash.
+## **1b — Context Sheet Extraction (GLM-OCR)**
 
 | **Parameter** | **Value** |
-| - | - |
-| Model | datalab-to/chandra-ocr-2 |
-| VRAM footprint | ~2.8 GB at 4-bit GGUF/AWQ quantisation |
-| Input | Full-page form image (post-deskew if applicable) |
-| Output format | Markdown + JSON with layout-preserving field labels, checkboxes as boolean |
-| Confidence | Per-field confidence in output JSON |
-| Low-confidence threshold | \< 0.70 → flag field for human review |
-| Handwriting | Native — no separate HTR pipeline needed |
-| Layout | Native — no separate segmentation needed (15+ block types) |
-| Languages | 90+ languages (77.8% on top language benchmarks) |
+|---|---|
+| Model | zai-org/GLM-OCR (0.9B params: 0.4B CogViT + 0.5B GLM decoder) |
+| VRAM footprint | ~2.2 GB via Ollama |
+| License | MIT (weights) / Apache 2.0 (code) |
+| OmniDocBench score | 94.62 |
+| Key architecture | Multi-Token Prediction (MTP) — predicts multiple tokens per step for fast OCR throughput |
+| Ollama context | `num_ctx: 16384` required for image processing |
+| Temperature | 0.0 (greedy decoding — no creative hallucination) |
+| Structured output | Pydantic schema injected via Ollama `format` parameter (constrained decoding) |
+| Output validation | `ContextSheet.model_validate_json()` — secondary Pydantic enforcement layer |
+| Low-confidence handling | Self-reported via `review_flags` array in schema; model appends flag when uncertain |
 
-### Legacy Models Replaced
+The Pydantic schema constrains the model's token generation at the tensor level — the decoding algorithm masks logits that would violate the JSON grammar. This ensures structurally valid output:
 
-The original design specified TrOCR + HTRflow for handwritten text recognition and HTRflow for page segmentation. Both are now superseded by Chandra OCR 2's native capabilities:
+```python
+class ContextSheet(BaseModel):
+    context_number: str
+    type: str                    # layer, cut, deposit, etc.
+    cut_by: list[str]
+    cuts: list[str]
+    fills: list[str]
+    description: str
+    interpretation: str
+    period: str
+    finds: list[Find]
+    samples: list[dict]
+    review_flags: list[dict]     # self-reported ambiguity
+```
 
-- **TrOCR** (`microsoft/trocr-base-handwritten`) — requires pre-segmented, perfectly cropped line images. The separate segmentation pipeline and per-line inference overhead made it both slower and less accurate than modern VLMs. DTrOCR achieved 2.38% CER on IAM benchmark; modern VLMs achieve \<1.5%.
-- **HTRflow** — page segmentation as a standalone step is architecturally redundant. Chandra OCR 2 natively infers over 15 distinct block types with precise bounding coordinates directly in its structured output.
-
-Legacy domain-specific fine-tunes (`medieval-data/trocr-medieval-base`, `Riksarkivet/trocr-base-handwritten-hist-swe-2`) may still be useful for specialised historical scripts via an alternative pipeline path, but the primary pipeline uses Chandra OCR 2 exclusively.
-
-
-### **Output Schema — Context Sheet (canonical)**
-
-| // 01\_digitised/ctx\_001.json \{   "source\_file": "ctx\_001",   "model": "chandra-ocr-2",   "confidence\_overall": 0.87,   "context\_number": "\[374\]",   "type": "layer",   "cut\_by": \["\[312\]", "\[356\]"\],   "cuts": \[\],   "same\_as": null,   "fills": \["\[375\]"\],   "filled\_by": \[\],   "description": "Mid brown silty clay. Moderate frequency angular and sub-angular flint inclusions (5-20mm). Compact.",   "interpretation": "Probable ploughsoil horizon.",   "period": "Post-medieval",   "finds": \[     \{ "type": "ceramic", "qty": 3, "period": "Post-medieval", "notes": "" \},     \{ "type": "CBM",     "qty": 7, "period": "Unknown",       "notes": "" \}   \],   "samples": \[\],   "sketch\_present": false,   "review\_flags": \[     \{ "field": "description", "issue": "LOW\_CONFIDENCE", "confidence": 0.61 \}   \] \} |
-| - |
-
-
-## **1c — Complex Table Parsing (MinerU2.5-Pro-2604-1.2B)**
-
-MinerU2.5-Pro (April 2026) represents a triumph of data engineering over architectural scaling. It uses a "coarse-to-fine" two-stage parsing methodology: first assessing a heavily downsampled page to establish macro-level table geometries, then cropping native-resolution segments for targeted content extraction. This avoids the quadratic attention penalty of feeding high-resolution images into transformer architectures. It achieves 95.69 on OmniDocBench v1.6, with Table TEDS scores beating models 200× larger.
+## **1c — Table & Catalogue Parsing (Docling)**
 
 | **Parameter** | **Value** |
-| - | - |
-| Model | opendatalab/MinerU2.5-Pro-2604-1.2B |
-| Use case | Multi-page finds catalogues; tables with embedded artifact sketches |
-| VRAM footprint | ~2.4 GB (FP16/BF16) |
-| Key capability | Cross-page table merging; in-table image extraction to separate PNG files |
-| Output | Markdown tables + extracted sketch images linked by row ID |
-| When to invoke | Only when input is typed/printed catalogue PDF or photo with visible table grid |
-| Skip condition | If finds catalogue was provided as CSV — parse directly with pandas instead |
-| Training | 65.5M samples with Diversity-and-Difficulty-Aware Sampling; Judge-and-Refine pipeline |
+|---|---|
+| Model | ibm-granite/granite-docling-258M (258M params: SigLIP2 + Granite 165M) |
+| VRAM footprint | <1 GB |
+| License | Apache 2.0 |
+| Framework | Docling library (IBM/MIT) — replaces MinerU entirely |
+| Key capability | Heron layout models for cross-page table merging; Markdown/HTML/JSON export |
+| Performance | 12-page extraction in 8.2s (vs MinerU 14.7s) |
+| Input types | PDF, image, DOCX, TXT, HTML — all handled by same pipeline |
+| Typed notes | CPU-bound parser for DOCX/TXT/MD — zero VRAM cost |
 
+## **1d — Fallback for Degraded Documents**
 
-| **⚠  RISK** | MinerU2.5-Pro should NOT be used for handwritten context sheets — its table-parsing logic will misfire on free-form handwritten text. Route handwritten documents through Chandra OCR 2 instead. |
-| :-: | - |
+If GLM-OCR fails Pydantic validation after 2 attempts, the pipeline:
+1. Evicts GLM-OCR from VRAM (`keep_alive: 0`)
+2. Loads **Qwen3-VL-4B** as fallback
+3. Attempts extraction again with the same image
+4. Flags output with `review_flags: [{field: "_model", issue: "Fallback model used"}]`
+5. If fallback also fails: marks document for human review with blank placeholder JSON
 
+## **VRAM Management Protocol**
+
+Rather than llama.cpp router mode (which has race conditions on rapid model switching), Phase 1 uses **Ollama's `keep_alive` parameter** for deterministic VRAM control:
+
+```
+1. Load GLM-OCR with keep_alive=-1     → locked in VRAM during context sheet batch
+2. Process all context sheets            → GLM-OCR stays resident
+3. Evict GLM-OCR: keep_alive=0          → VRAM freed immediately
+4. gc.collect() + time.sleep(2)         → garbage collection
+5. Load Docling (via transformers)      → <1 GB for table processing
+6. Process all catalogues                → Docling stays resident
+7. Unload Docling                        → VRAM freed
+```
+
+Absolute peak VRAM = max(2.2 GB, <1 GB) = **2.2 GB** — comfortably within 8 GB.
 
 ## **Phase 1 VRAM Budget**
 
-Models load and clear **strictly sequentially**. Aggressive memory clearing (`torch.cuda.empty_cache()`, active GC) must be enforced between sub-phases to prevent fragmentation and OOM failures. Peak VRAM at any moment is the single largest model.
+| **Route** | **Task** | **Model** | **VRAM** | **Lifecycle** |
+|---|---|---|---|---|
+| Route 1 | Handwriting + forms + checkboxes | GLM-OCR | ~2.2 GB | Load → batch → evict |
+| Route 2 | Tables + typed documents | Granite-Docling-258M | <1 GB | Load → batch → evict |
+| Route 3 | Typed notes (DOCX/TXT/MD) | Docling CPU parser | 0 GB | No GPU needed |
+| Fallback | Degraded documents | Qwen3-VL-4B | ~2.8 GB | Evict GLM-OCR first, then load |
+| **Peak** | Worst case (GLM-OCR) | | **~2.2 GB** | 5.8 GB headroom on 8 GB GPU |
 
-| **Step** | **Task** | **Model** | **Quantisation** | **VRAM** | **Post-Execution Action** |
-| - | - | - | - | - | - |
-| 1A (cond.) | Distortion Correction | PaddleOCR-VL-1.5 | FP16/BF16 | ~1.8 GB | Purge weights, clear CUDA cache. Retain corrected image arrays in RAM. |
-| 1B (cond.) | Table Extraction | MinerU2.5-Pro-2604-1.2B | FP16/BF16 | ~2.4 GB | Extract tables to structured Markdown/JSON. Purge weights, clear cache. |
-| 1C | Layout + Handwriting + Forms | Chandra OCR 2 | 4-bit GGUF/AWQ | ~2.8 GB | Process all remaining documents. Purge weights. |
-| **Peak** | Worst case (Chandra alone) | | | **~2.8 GB** | Comfortably within 6 GB (2.5 GB headroom) |
+### Checkbox & Categorical Field Post-Processing
+
+GLM-OCR outputs checkbox lines verbatim (e.g. `"Layer (✓) Cut ( ) Deposit ( ) Fill ( )"`). A lightweight post-processor normalises these into clean categorical values:
+
+| **Raw GLM-OCR Output** | **Parsed Value** |
+|---|---|
+| `"Layer (✓) Cut ( ) Deposit ( ) Fill ( )"` | `"layer"` |
+| `"Layer ( ) Cut (✓) Deposit ( ) Fill ( )"` | `"cut"` |
+| `"Yes (✓) No ( )"` | `True` |
+
+This is implemented as a Python regex pass over the extracted JSON before it's written to the `01_digitised/` directory. No model inference needed.
+
+## **v1.1 Enhancement: NuExtract3**
+
+[NuExtract3](https://huggingface.co/numind/NuExtract3) is a 4B vision-language model built on Qwen3.5-4B, specifically fine-tuned for structured JSON extraction from documents. It is a strong candidate to replace or supplement GLM-OCR for Phase 1 context sheet extraction, particularly for:
+
+- **Categorical field inference** — better at mapping visual content to enum-type JSON schema fields (context type, period)
+- **Structured output fidelity** — trained specifically for schema-constrained extraction rather than relying on Ollama's grammar-mask approach
+- **Shared base model** — shares the Qwen3.5-4B backbone with Phase 3, potentially allowing shared KV cache optimisations
+
+**Not adopted for v1** due to:
+- No Ollama support — requires transformers library (heavier dependency, no GGUF quantisation available)
+- Larger VRAM footprint (~3-4 GB vs GLM-OCR's 2.2 GB)
+- Not yet evaluated against real archaeological context sheets
+- Integration cost exceeds benefit for initial release
+
+**Adoption path for v1.1:** Once the pipeline is stable with GLM-OCR, evaluate NuExtract3 on a corpus of 20-50 real context sheets. If categorical accuracy improves >10%, swap Route 1 from GLM-OCR to NuExtract3. The Phase 1 architecture is model-agnostic — the swap requires changing only the Ollama call to a transformers inference call.
 
 
 
@@ -319,7 +376,7 @@ All model loading/swapping is handled by **llama.cpp router mode** (`llama-serve
 
 This is the most cognitively demanding phase. The model is given the complete digitised record — all context sheet JSON, finds data, sample results, photo captions, and stratigraphic relationships — and is tasked with producing a structured Markdown draft matching the report skeleton defined by the jurisdiction template (see Section 8).
 
-As of May 2026, off-the-shelf prompt engineering has been superseded by **domain-specific QLoRA fine-tuning**. The Phase 3 model has been fine-tuned on a curated corpus of ~50,000 ADS grey literature reports using the Unsloth framework, permanently embedding the archaeological prose register, controlled vocabulary, and stratigraphic reasoning into the model weights. This produces significantly more fluent and terminologically precise drafts than even the best prompt-engineered general-purpose model.
+**v1 uses prompt-engineered Qwen3.5-4B** with a carefully crafted system prompt. The base model is already excellent — 262K context, dual-mode thinking/instruct, Apache 2.0 — and produces competent drafts without any fine-tuning. A domain-specific QLoRA adapter (trained on ADS grey literature corpus) remains a **v1.1 enhancement** for improved terminology precision, but is not required for the pipeline to function.
 
 ## **Model Selection**
 
@@ -333,11 +390,14 @@ As of May 2026, off-the-shelf prompt engineering has been superseded by **domain
 | Inference engine | llama.cpp server mode with `--lora-scaled` for adapter hot-swapping |
 | Temperature | 0.3 for drafting (low creativity, high fidelity to input data) |
 | Training corpus | ~50,000 ADS grey literature reports + ~20,000 tDAR reports (CC-BY / ADS terms), processed via Docling |
-| Training GPU | Single RTX 4090 (24 GB) via QLoRA; 60-80 GPU-hours estimated |
+| Training GPU | Any GPU via QLoRA. **Free options:** Google Colab (T4 16GB — recommended; you already have a Colab workflow for cunAIform), Kaggle (30 hrs/wk P100), or local (8GB VRAM — slower but works with batch_size=1 + gradient accumulation). ~60-80 GPU-hours on 4090; longer on smaller GPUs but entirely free. |
 | LoRA adapter size | ~50-100 MB (distributed separately from base model for low-bandwidth updates) |
 | Output format | Structured Markdown with section headers matching jurisdiction template |
 | Key advantage | ArchaeoBERT-level terminology + LLM-level reasoning; eliminates colloquial synonyms ("sandy soil" vs "loamy sand") |
 | Update mechanism | New training data → new LoRA adapter download (~100 MB only, no full model re-download) |
+| Training GPU (free options) | **Kaggle free** (30 hrs/wk P100/T4), **local RTX 3060 12GB** (slow but free), **Google Colab free** (T4 + resumable checkpoints) |
+| Distribution | LoRA adapter hosted on Hugging Face — one person trains, everyone downloads at zero cost |
+| v1 fallback | If no LoRA adapter is present, the pipeline falls back to prompt-engineered Qwen3.5-4B base model. Fine-tuning is a v1.1 enhancement, not a v1 blocker. |
 
 
 | **ℹ  NOTE** | vLLM and SGLang are excellent for high-throughput server deployments but carry significant overhead (Ray cluster, CUDA graph capture) that is unnecessary and harmful on a single 6 GB consumer GPU. Use llama.cpp in server mode instead — it is specifically optimised for local single-GPU inference and handles the KV cache correctly at this memory level. |
@@ -345,6 +405,16 @@ As of May 2026, off-the-shelf prompt engineering has been superseded by **domain
 
 
 ## **Fine-Tuning Corpus & Methodology**
+
+### ⏭️  Deferred to v1.1
+
+Fine-tuning is not required for v1 — the prompt-engineered Qwen3.5-4B base model produces competent drafts without it. A QLoRA adapter (trained on ADS grey literature corpus) would improve terminology precision and prose register, but:
+
+1. **It's a quality polish, not a functional requirement** — the pipeline works fine without it
+2. **Training takes calendar time** — even on free GPU resources, it's a multi-week background task
+3. **Better to ship v1 first**, get real user feedback, and let actual usage guide the training corpus priorities
+
+When the time comes, the free training paths are documented below.
 
 ### Training Data Sources
 
@@ -358,7 +428,11 @@ As of May 2026, off-the-shelf prompt engineering has been superseded by **domain
 
 1. **PDF extraction via Docling** (IBM, MIT license) — layout-aware multimodal extraction preserving table/header structure, avoids heuristic coordinate scraping failures of pdfplumber/Camelot
 2. **Geoprivacy redaction** — NER + regex masking of OS Grid References (TQ 12345 67890 → `[NGR]`), GPS coordinates, excavator names, and client PII
-3. **Synthetic pair generation** — frontier model (70B+) reverse-engineers raw JSON data from human-written reports, producing instruction pairs: `{structured cockpit data → authentic grey literature narrative}`
+3. **Synthetic pair generation** — this step is the most computationally intensive part of corpus preparation. Free/zero-cost options:
+   - **Self-hosted approach**: The largest model that fits on the RTX 3060 12GB (e.g. Qwen3.5-4B in think mode with careful prompt engineering) can approximate the reverse-engineering task, though quality will be lower than a frontier model
+   - **Kaggle/Colab**: A 70B+ model can be run via free GPU allocations for batch processing
+   - **Simpler fallback**: Skip synthetic pair generation entirely. Use a simpler instruction format where the PDF-extracted text (context sheets, finds tables) is the input and the human-written report section is the target output. This requires less preprocessing and no frontier model
+   - The simplest approach is adequate for v1.0
 4. **Filtering** — discard documents with >5% non-dictionary character rate (OCR corruption) or broken table structures
 
 ### Evaluation Framework (Held-out test set: 500 reports)
@@ -524,7 +598,7 @@ New jurisdictions can be contributed as a package containing:
 
 Phase 5 is entirely rule-based / deterministic — no LLM inference, zero hallucination risk. It bridges the gap between structured Markdown (Phase 4 output) and the three final deliverables required by commercial archaeology: an editable DOCX draft for PI review, an HTML preview for rapid checking, and a strictly compliant PDF/A-2b archival document for ADS/OASIS deposition.
 
-The architecture is a **hybrid Markdown → Jinja → WeasyPrint pipeline**, cleanly decoupling content parsing, word processing synthesis, and archival rendering into distinct operational layers. Dependencies: `pyyaml`, `pypandoc`, `docxtpl`, `docxcompose`, `weasyprint`, `pyhanko`, `rectpack`, `graphviz`, `matplotlib`, `pillow`.
+The architecture is a **hybrid Markdown → python-docx + WeasyPrint pipeline**, cleanly decoupling content parsing, word processing synthesis, and archival rendering into distinct operational layers. Dependencies: `pyyaml`, `python-docx`, `weasyprint`, `rectpack`, `pillow`.
 
 ## **Pipeline Architecture**
 
@@ -532,7 +606,7 @@ The architecture is a **hybrid Markdown → Jinja → WeasyPrint pipeline**, cle
 | - | - | - | - |
 | Frontmatter extraction | YAML parsing | pyyaml | Global context dict (site code, HER refs, author metadata) |
 | HTML preview | Pandoc | pypandoc | Semantic HTML5 + basic CSS |
-| DOCX (editable draft) | Jinja2-in-Word | docxtpl + docxcompose | Branded, jurisdiction-specific .docx with dynamic tables |
+| DOCX (editable draft) | python-docx heading styles + tables | python-docx | Formatted .docx with cover page, sections, appendices inline images |
 | PDF/A-2b (archival) | HTML/CSS → PDF | weasyprint | ISO 32000-1 compliant, fonts subsetted, sRGB colours, Dublin Core XMP |
 | Digital signatures (opt.) | PAdES injection | pyHanko | Offline PAdES-B/LTV cryptographic signatures |
 | Data archive | ZIP | Python zipfile | All JSON, Markdown, assets, logs |
@@ -649,8 +723,7 @@ PAdES (PDF Advanced Electronic Signatures) via `pyHanko` for jurisdictions requi
 
 | **Output** | **Format** | **Tool** | **Purpose** |
 | - | - | - | - |
-| Editable draft | DOCX | docxtpl + docxcompose | Principal Investigator review and editing |
-| Web preview | HTML | pypandoc | Rapid visual check in browser |
+| Editable draft | DOCX | python-docx | Principal Investigator review and editing |
 | Archival report | PDF/A-2b | weasyprint | ADS/OASIS permanent deposition |
 | Signed report (opt.) | PDF + PAdES | pyHanko | Regulatory submission (US SHPO, planning authorities) |
 | Data archive | ZIP | Python zipfile | All intermediate data for reproducibility |
@@ -750,9 +823,13 @@ A reference dataset of 3 fully processed past excavations (with known-good publi
 | Python | 3.12+ | Orchestrator runtime | PSF |
 | llama.cpp (server) | Latest | Qwen, Gemma inference + LoRA adapter hot-swapping | MIT |
 | **Phase 1 — Digitisation** | | | |
-| PaddleOCR-VL-1.5 | HuggingFace | Distortion correction (conditional) | Apache 2.0 |
-| MinerU2.5-Pro-2604-1.2B | HuggingFace | Table parsing (OmniDocBench 95.69) | Apache 2.0 |
-| Chandra OCR 2 | HuggingFace (datalab-to/chandra-ocr-2) | Layout, handwriting, checkboxes, forms | MIT |
+| | | | |
+| GLM-OCR | Ollama (zai-org/GLM-OCR) | Handwritten context sheet extraction — Multi-Token Prediction | MIT / Apache 2.0 |
+| Granite-Docling-258M | HuggingFace (ibm-granite/granite-docling-258M) | Layout-aware table parsing — replaces MinerU | Apache 2.0 |
+| Docling | Latest pip (docling-project) | Document conversion framework — PDF/DOCX/TXT/HTML parsing | MIT |
+| Qwen3-VL-4B | Ollama (qwen3-vl:4b) | Fallback for degraded documents | Apache 2.0 |
+| opencv-python | Latest pip | CPU image pre-processing (CLAHE, deskew, adaptive threshold) | Apache 2.0 |
+| pydantic | Latest pip | Structured output schema enforcement | MIT |
 | **Phase 2 — Spatial** | | | |
 | Florence-2-large | HuggingFace (microsoft/Florence-2-large) | Visual grounding / bounding box extraction | MIT |
 | Qwen3-VL-4B-Instruct | HuggingFace (Qwen/Qwen3-VL-4B-Instruct) | Photo captioning + cross-check (262K context) | Apache 2.0 |
@@ -766,15 +843,13 @@ A reference dataset of 3 fully processed past excavations (with known-good publi
 | chromadb | Latest pip | Lightweight vector store for guideline RAG | Apache 2.0 |
 | sentence-transformers | 3.x | Embedding for RAG retrieval + ARK header mapping (CPU) | Apache 2.0 |
 | **Phase 5 — Assembly & Export** | | | |
-| docxtpl | Latest pip | Jinja2-in-Word DOCX template population | LGPL |
-| docxcompose | Latest pip | Multi-chapter DOCX merging | MIT |
-| weasyprint | Latest pip | Markdown→HTML→PDF/A-2b archival rendering | BSD |
-| pyHanko | Latest pip | Offline PAdES digital signatures | MIT |
+| python-docx | Latest pip | DOCX generation with heading styles, tables, images | MIT |
+| weasyprint | 68.1+ | Markdown→HTML→PDF/A-2b archival rendering | BSD |
 | rectpack | Latest pip | 2D bin-packing for photo/artefact plates | MIT |
-| graphviz | system + pip | Harris Matrix SVG generation | EPL |
-| matplotlib | Latest pip | Pollen diagrams, NISP charts, fabric chronotype graphs | PSF |
-| pypandoc | Latest pip | Markdown→HTML preview conversion | MIT |
-| Pillow / Wand | Latest pip | Image normalisation | HPND / ImageMagick |
+| Pillow / Wand | Latest pip | Image dimension queries + normalisation | HPND / ImageMagick |
+| pyHanko | Latest pip | Optional offline PAdES digital signatures (v1.1) | MIT |
+| docxcompose | Latest pip | Optional multi-chapter DOCX merging (v1.1) | MIT |
+| markdown | Latest pip | Markdown→HTML conversion for PDF rendering | BSD |
 | **Shared / Infrastructure** | | | |
 | OpenCV | 4.x | Quality triage (Phase 0) | Apache 2.0 |
 | pandas | 2.x | CSV/XLSX parsing, specialist data aggregation | BSD |
@@ -797,5 +872,12 @@ A reference dataset of 3 fully processed past excavations (with known-good publi
 
 - ~~Phase 5 document generation architecture~~ — ✅ **Researched.** Hybrid docxtpl (DOCX) + WeasyPrint (PDF/A-2b) + rectpack/Graphviz (figures) + pyHanko (signatures).
 
-- **Training infrastructure:** Who provides the RTX 4090 for Phase 3 fine-tuning? The 60-80 GPU-hours can run on a local workstation (if available), a rented cloud GPU (Lambda Labs, RunPod, Vast.ai), or on the target RTX 3060 12GB at slower speed (estimated 3-5x longer). Cloud GPU cost at ~$0.50/hr: ~$30-40 total.
+- ~~**Fine-tuning GPU concern**~~ — The research note about cloud GPU cost ($30-40) was based on rented RTX 4090 pricing. **This cost is avoidable through several free routes:**
+
+   1. **Kaggle free tier** — 30 hrs/week of P100 16GB or T4 GPU, zero cost. QLoRA on Qwen3.5-4B completes within 2-3 weeks of free quota. This is the primary recommendation.
+   2. **Local RTX 3060 12GB** — The target inference GPU can also train, just 3-5x slower (200-400 hours instead of 60-80). Zero cost. Leave it running over a weekend or two. Unsloth's Triton kernel optimisations make this feasible.
+   3. **Google Colab free** — T4 GPU (~15 GB usable VRAM). 2-hour session timeout but training state can be saved and resumed. Free.
+   4. **Hugging Face community sharing** — Once one person has run the training (via any of the above zero-cost routes), the resulting ~100 MB LoRA adapter can be uploaded to Hugging Face for every HOARD user to download directly. The training cost is a ONE-TIME burden, not per-user. This is the model HOARD should adopt: the developer runs training once via Kaggle/Colab/local, distributes the adapter freely, and each user downloads the small file with no GPU-time cost.
+
+   **For v1, fine-tuning is optional.** The base Qwen3.5-4B with a well-crafted system prompt produces excellent drafts. Fine-tuning is a v1.1 quality enhancement, not a v1 blocker. The pipeline works either way — the Phase 3 orchestrator simply loads the GGUF base model if no LoRA adapter is present, and loads base+adapter if one is found.
 
