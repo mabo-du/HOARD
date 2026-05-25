@@ -67,6 +67,7 @@ class Find(BaseModel):
 class ContextSheet(BaseModel):
     source_file: str = Field(description="Original source filename")
     model: str = Field(default="glm-ocr", description="Model used for extraction")
+    schema_version: str = Field(default="1.0.0", description="Schema contract version")
     context_number: str = Field(description="Context number, e.g. [101]")
     type: str = Field(description="Context type: layer, cut, deposit, structure, etc.")
     cut_by: list[str] = Field(default_factory=list, description="Contexts that cut this one")
@@ -555,6 +556,55 @@ def run_phase1(config: Config) -> dict[str, Any]:
     log_path = config.logs_dir / "phase1_summary.json"
     log_path.write_text(json.dumps(summary, indent=2))
 
+    # Validate outputs against schema contract (v1)
+    validated, errors = _validate_context_schema(output_dir)
+    if errors:
+        logger.warning(f"Schema validation: {validated}/{validated + len(errors)} passed")
+        for err in errors[:5]:
+            logger.warning(f"  Schema error: {err}")
+
     logger.info(f"Phase 1 complete: {processed_count} processed, {failed_count} failed in {duration_ms/1000:.1f}s")
 
     return summary
+
+
+_SCHEMA_PATH = Path(__file__).resolve().parent.parent.parent.parent / "schemas" / "context-sheet-v1.json"
+
+
+def _validate_context_schema(digitised_dir: Path) -> tuple[int, list[str]]:
+    """Validate Phase 1 output JSON files against the shared schema contract.
+
+    Returns (valid_count, error_messages).
+
+    This is advisory (warns but doesn't halt) so extraction proceeds even
+    if the schema has minor additions or the output has benign extras.
+    """
+    errors: list[str] = []
+    valid_count = 0
+
+    schema_path = _SCHEMA_PATH
+    if not schema_path.exists():
+        logger.info(f"Schema contract not found at {schema_path} — skipping validation")
+        return 0, []
+
+    try:
+        import jsonschema
+        schema = json.loads(schema_path.read_text())
+    except ImportError:
+        logger.info("jsonschema not installed — skipping schema contract validation")
+        return 0, []
+    except Exception as e:
+        logger.warning(f"Could not load schema: {e}")
+        return 0, []
+
+    for f in sorted(digitised_dir.glob("*.json")):
+        try:
+            data = json.loads(f.read_text())
+            jsonschema.validate(instance=data, schema=schema)
+            valid_count += 1
+        except jsonschema.ValidationError as e:
+            errors.append(f"{f.name}: {e.message[:100]}")
+        except Exception:
+            pass
+
+    return valid_count, errors
