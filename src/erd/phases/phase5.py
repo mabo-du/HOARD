@@ -374,6 +374,16 @@ def export_report(
         _pandoc_convert(md_path, pdf_path, "pdf")
         results["pdf"] = pdf_path.resolve() if pdf_path.exists() else None
 
+    # ── Signed PDF export (optional — requires pyHanko + signing key) ──
+    if "signed-pdf" in formats:
+        from erd.export.signatures import sign_pdf, has_signing_key
+        pdf_path = results.get("pdf")
+        if pdf_path and has_signing_key():
+            signed_path = sign_pdf(Path(str(pdf_path)))
+            results["signed-pdf"] = signed_path.resolve() if signed_path else None
+        else:
+            results["signed-pdf"] = None
+
     # ── TEI-XML export ──
     if "tei-xml" in formats:
         tei_path = final_dir / f"report_{timestamp}.xml"
