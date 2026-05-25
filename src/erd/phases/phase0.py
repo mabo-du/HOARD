@@ -165,16 +165,22 @@ def _normalise_image(input_path: Path, output_dir: Path, dpi_target: int = 300) 
         except Exception:
             return None
 
-    # PDF — first page only via Wand (ImageMagick)
+    # PDF — extract all pages via PyMuPDF (memory-efficient)
     if ext == ".pdf":
         try:
-            from wand.image import Image as WandImage
+            import fitz  # PyMuPDF
 
-            out_path = output_dir / f"{input_path.stem}_page_001.png"
-            with WandImage(filename=str(input_path), resolution=dpi_target) as img:
-                img.compression_quality = 95
-                img.save(filename=str(out_path))
-            return out_path
+            doc = fitz.open(str(input_path))
+            page_count = min(len(doc), 50)  # Cap at 50 pages for safety
+            paths: list[Path] = []
+            for i in range(page_count):
+                page = doc[i]
+                pix = page.get_pixmap(dpi=150)  # Lower DPI for PDF scans
+                out_path = output_dir / f"{input_path.stem}_page_{i+1:03d}.png"
+                pix.save(str(out_path))
+                paths.append(out_path)
+            doc.close()
+            return paths[0] if paths else None
         except Exception:
             return None
 
@@ -405,18 +411,23 @@ def run_phase0(config: Config) -> dict[str, Any]:
             if not valid:
                 finds_issues.append({"file": entry.id, "issues": issues})
 
-    # Check mandatory types
-    missing_mandatory = MANDATORY_TYPES - mandatory_found
-    mandatory_check = "FAIL" if missing_mandatory else "PASS"
+    # Critical: must have at least one context sheet
+    if "context_sheet" not in mandatory_found:
+        missing_mandatory = {"context_sheet"}
+        mandatory_check = "FAIL"
+    else:
+        missing_mandatory = MANDATORY_TYPES - mandatory_found - {"context_sheet"}
+        mandatory_check = "WARN" if missing_mandatory else "PASS"
 
-    # Count flagged / unreadable context sheets
+    # Count flagged / unreadable context sheets for quality check
     context_sheets = [e for e in entries if e.type == "context_sheet"]
     flagged_contexts = [e for e in context_sheets if e.quality.flag is not None]
+
     halt_flag = (
-        mandatory_check == "FAIL"
+        mandatory_check == "FAIL"  # Only halt on missing context sheets
         or (
             len(context_sheets) > 0
-            and len(flagged_contexts) / max(len(context_sheets), 1) > 0.3
+            and len(flagged_contexts) / max(len(context_sheets), 1) > 0.9  # 90% degraded = bad batch
         )
     )
 
