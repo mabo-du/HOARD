@@ -284,8 +284,8 @@ def assemble_report(
         config.final_dir.mkdir(parents=True, exist_ok=True)
         (config.final_dir / "harris_matrix.svg").write_text(harris_svg)
 
-    # Step 6: Generate photo plates from assets
-    photo_plates_md = write_photo_plates(assets_dir)
+    # Step 6: Generate photo plates from assets (only Phase 2-processed images)
+    photo_plates_md = write_photo_plates(assets_dir, spatial_dir=config.spatial_dir)
     if photo_plates_md:
         appendices["photo_plates"] = photo_plates_md
 

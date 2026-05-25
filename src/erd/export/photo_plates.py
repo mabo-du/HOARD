@@ -38,18 +38,31 @@ _CAPTION_H = 30  # px reserved per caption row
 def write_photo_plates(
     assets_dir: Path,
     captions: dict[str, str] | None = None,
+    spatial_dir: Path | None = None,
 ) -> str:
     """Generate Markdown photo plates from images in assets_dir.
+
+    Only includes images that have a corresponding Phase 2 caption JSON
+    in spatial_dir (if provided), so context sheets and other non-photo
+    images are excluded.
 
     Args:
         assets_dir: Directory to scan recursively for images.
         captions: Optional dict mapping image filename stems to captions.
+        spatial_dir: Optional Phase 2 output dir. If provided, only images
+                     with a matching {stem}.json caption file are included.
 
     Returns:
         Markdown string containing all photo plates, or empty string if no
         images found.
     """
     images = _collect_images(assets_dir, captions or {})
+
+    # Filter to only images processed by Phase 2 (have caption JSON in spatial_dir)
+    if spatial_dir and spatial_dir.is_dir():
+        processed_stems = {f.stem for f in spatial_dir.glob("*.json")}
+        images = [img for img in images if img.path.stem in processed_stems]
+
     if not images:
         return ""
 

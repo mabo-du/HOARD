@@ -354,7 +354,7 @@ _SVG_PROMPT = """Convert this archaeological section drawing to SVG. Rules:
 
 
 def _ctx_numbers(context_data: list[dict[str, Any]] | None) -> str:
-    """Extract context numbers from context data for SVG prompt."""
+    """... existing docstring ..."""
     if not context_data:
         return ""
     nums = []
@@ -363,6 +363,34 @@ def _ctx_numbers(context_data: list[dict[str, Any]] | None) -> str:
         typ = c.get("type", "?")
         nums.append(f"{num} ({typ})")
     return ", ".join(nums)
+
+
+def _filter_photos_from_manifest(
+    images: list[Path],
+    manifest_dir: Path,
+) -> list[Path]:
+    """Filter images to only those classified as site_photo or plan in the manifest.
+
+    Context sheets, sample photos, and other document scans are excluded.
+    Falls back to all images if no manifest is available.
+    """
+    manifest_path = manifest_dir / "manifest.json"
+    if not manifest_path.exists():
+        return images  # No manifest — process all (fallback)
+
+    try:
+        import json
+        manifest = json.loads(manifest_path.read_text())
+        photo_files: set[str] = set()
+        for entry in manifest.get("files", []):
+            if entry.get("type") in ("site_photo", "plan"):
+                # Store both the filename and the original path
+                photo_files.add(Path(entry["path"]).name)
+    except Exception:
+        return images
+
+    filtered = [img for img in images if img.name in photo_files]
+    return filtered or images  # Fallback to all if filter empties the list
 
 
 def process_svg_drawing(
@@ -571,9 +599,21 @@ def run_phase2(config: Config) -> dict[str, Any]:
     digitised_dir = config.digitised_dir
 
     # Find images and load context data
-    images = _find_assets(assets_dir)
-    if not images:
+    all_images = _find_assets(assets_dir)
+    if not all_images:
         logger.info("No images found in assets/ — Phase 2 skipped")
+        return {
+            "status": "skipped",
+            "processed": 0,
+            "failed": 0,
+            "output_dir": str(spatial_dir),
+        }
+
+    # Filter by manifest type: only process site_photo and plan files,
+    # not context sheets (which would produce irrelevant photo plates)
+    images = _filter_photos_from_manifest(all_images, config.manifest_dir)
+    if not images:
+        logger.info("No site photos or plans found in manifest — Phase 2 skipped")
         return {
             "status": "skipped",
             "processed": 0,
@@ -614,9 +654,9 @@ def run_phase2(config: Config) -> dict[str, Any]:
 
         results.append(out_data)
 
-    # ── SVG geometry (attempt on section drawings) ──
+    # ── SVG geometry (attempt on section drawings from ALL images) ──
     svg_count = 0
-    for img_path in images:
+    for img_path in all_images:
         if _is_section_drawing(img_path):
             logger.info(f"Attempting SVG from {img_path.name}...")
             svg = process_svg_drawing(img_path, context_data)
