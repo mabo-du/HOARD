@@ -10,8 +10,6 @@ Project task tracking with time estimates, dependencies, and TOON-enhanced parsi
 
 ## Backlog (still valid)
 
-- [ ] t024 Assemble integration test dataset (3 past excavations with known reports) @hoard #testing ~3h risk:low logged:2026-05-11
-- [ ] t030 Benchmark full pipeline runtime against 6 GB VRAM target @hoard #testing ~2h risk:low logged:2026-05-11
 
 ## Superseded (replaced during development)
 
@@ -54,6 +52,8 @@ Project task tracking with time estimates, dependencies, and TOON-enhanced parsi
 - [x] t041 Checkbox post-processing for GLM-OCR output ~30m actual:30m logged:2026-05-25 completed:2026-05-25
 - [x] t042 SVG geometry from field section drawings ~2h actual:2h logged:2026-05-25 completed:2026-05-25
 - [x] t043 End-to-end pipeline test with mock data ~2h actual:2h logged:2026-05-25 completed:2026-05-25
+- [x] t024 Assemble integration test dataset (3 past excavations with known reports) ~3h actual:1h logged:2026-05-11 completed:2026-05-25
+- [x] t030 Benchmark full pipeline runtime against 8 GB VRAM target ~2h actual:2h logged:2026-05-11 completed:2026-05-25
 - [x] t015 Implement chunk-and-merge fallback for large sites (>500 contexts) ~2h actual:2h logged:2026-05-11 completed:2026-05-25
 - [x] t007 Write Phase 1 unit tests (synthetic forms, known answers) ~2h actual:2h logged:2026-05-11 completed:2026-05-25
 - [x] t011 Write Phase 2 unit tests ~2h actual:2h logged:2026-05-11 completed:2026-05-25
