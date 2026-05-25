@@ -1,0 +1,23 @@
+{
+  "source_file": "ctx_004.png",
+  "model": "chandra-ocr-2",
+  "context_number": "[104]",
+  "type": "deposit",
+  "cut_by": [],
+  "cuts": [],
+  "same_as": null,
+  "fills": ["[102]"],
+  "filled_by": [],
+  "description": "Dark greyish-black silty clay. Frequent charcoal inclusions (5-15%). Moderate sub-angular flint. Occasional fired clay fragments. Very firm compaction.",
+  "interpretation": "Primary fill of ditch [102]. Represents initial silting after digging, with deliberate dumping of domestic waste indicated by charcoal and fired clay.",
+  "period": "Roman",
+  "finds": [
+    {"type": "pottery", "qty": 5, "period": "Roman", "notes": "Greyware body sherds"},
+    {"type": "animal_bone", "qty": 3, "period": "Roman", "notes": "Burnt bone fragments"},
+    {"type": "fired_clay", "qty": 6, "period": "Roman", "notes": "Amorphous fragments — possible oven lining"}
+  ],
+  "samples": [
+    {"id": "SAMP002", "type": "bulk_soil", "notes": "For flotation — 30L charcoal-rich deposit"}
+  ],
+  "sketch_present": false
+}

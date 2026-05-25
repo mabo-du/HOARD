@@ -127,6 +127,14 @@ t030|Full pipeline VRAM benchmark|hoard|testing|2h|low|2026-05-11|pending
 - [x] t033 Template engine with 14 jurisdiction templates ~4h actual:4h logged:2026-05-09 completed:2026-05-09
 - [x] t034 GitHub Actions CI workflow (lint + test + type-check) ~1h actual:1h logged:2026-05-11 completed:2026-05-11
 - [x] t035 GitHub repo migration + remote setup ~1h actual:1h logged:2026-05-11 completed:2026-05-11
+- [x] t036 Phase 1: GLM-OCR + Docling + Qwen3-VL fallback ~6h actual:6h logged:2026-05-25 completed:2026-05-25
+- [x] t037 Phase 2: Florence-2/Qwen3-VL-8B spatial reconstruction ~4h actual:4h logged:2026-05-25 completed:2026-05-25
+- [x] t038 Phase 3: Qwen3.5-4B synthesis & drafting ~4h actual:4h logged:2026-05-25 completed:2026-05-25
+- [x] t039 Phase 4: Gemma 4-E2B compliance refinement ~3h actual:3h logged:2026-05-25 completed:2026-05-25
+- [x] t040 Phase 5: python-docx DOCX + WeasyPrint PDF/A-2b + rectpack photo plates ~4h actual:4h logged:2026-05-25 completed:2026-05-25
+- [x] t041 Checkbox post-processing for GLM-OCR output ~30m actual:30m logged:2026-05-25 completed:2026-05-25
+- [x] t042 SVG geometry from field section drawings ~2h actual:2h logged:2026-05-25 completed:2026-05-25
+- [x] t043 End-to-end pipeline test with mock data ~2h actual:2h logged:2026-05-25 completed:2026-05-25
 
 <!--TOON:done[12]{id,desc,owner,tags,est,actual,logged,started,completed,status}:
 t021|Terminal review dashboard|hoard|review|4h|4h|2026-05-11||2026-05-13|completed
@@ -174,5 +182,5 @@ t008|t009
 <!--/TOON:subtasks-->
 
 <!--TOON:summary{total,ready,pending,in_progress,in_review,done,declined,total_est,total_actual}:
-35,0,23,0,0,12,0,72h,36h
+35,0,12,0,0,23,0,72h,55h
 -->

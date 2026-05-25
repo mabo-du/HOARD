@@ -1,0 +1,239 @@
+# **Exhaustive Fine-Tuning Strategy for the HOARD Archaeological Report Generation Pipeline**
+
+## **The Imperative for Domain-Specific Adaptation in Heritage Reporting**
+
+The Heritage Observation And Report Drafter (HOARD) project occupies a uniquely challenging technical intersection: it demands the deployment of advanced artificial intelligence capabilities entirely on-device, restricted by the severe computational constraints of a consumer-grade 6 GB VRAM graphics processing unit (GPU). The mandate for a fully local pipeline is not merely a preference but an absolute necessity dictated by data sovereignty protocols, the frequent lack of internet connectivity in rural excavation field houses, and the sensitive nature of unredacted geospatial heritage data. While the current pipeline leverages prompt-engineered, general-purpose large language models to execute Phase 3 (Synthesis and Drafting) and Phase 4 (Compliance Refinement), empirical observation demonstrates the inherent limitations of zero-shot domain adaptation for specialised scientific prose.  
+Archaeological grey literature operates within a highly idiosyncratic linguistic register. It demands the synthesis of rigid spatial geometries, temporal chronologies derived from stratigraphic superpositions (the Harris Matrix), and an intensely controlled vocabulary. General-purpose foundation models, trained predominantly on web corpora, journalistic text, and software code, invariably default to colloquial synonyms that inadvertently alter technical engineering properties or scientific categorisations. For example, a general model might substitute "loamy sand" with "sandy soil," failing to recognise that the former indicates a specific particle size distribution critical to assessing post-depositional taphonomy. Furthermore, grey literature requires strict adherence to geomorphological descriptive standards, such as the ROMFA scale for physical condition and the CAS/TCS (Context/Trench/Site) hierarchical structures.  
+To elevate HOARD from a functional prototype to a near-publication-ready automated drafting assistant, parameter-efficient fine-tuning (PEFT) must be applied to the pipeline's core synthesis engines. By updating the internal weights of a foundation model across a vast, curated corpus of expert-written reports, the architecture internalises the rhetorical structure of archaeological reporting. The model learns to seamlessly transition from stratigraphic narrative to finds summary, contextualising environmental data before formulating a synthetic discussion. This report delineates a comprehensive strategy to achieve this domain mastery, evaluating the rapidly evolving SLM (Small Language Model) ecosystem as of May 2026, defining optimal data curation pipelines, establishing specific training hyperparameter configurations, and outlining the precise deployment mechanisms required to multiplex task-specific adapters within a 6 GB VRAM envelope.
+
+## **1\. Foundation Model Evaluation and Selection Landscape**
+
+The period between April and May 2026 has witnessed a paradigm shift in the capabilities of open-weight models containing fewer than seven billion parameters. Driven by advancements in inference-time scaling, multi-token prediction drafters, and highly efficient sparse routing architectures, the current SLM ecosystem provides several compelling candidates for the HOARD pipeline. To satisfy the project's rigid constraints, candidate models must possess a permissive open-source license (such as Apache 2.0 or MIT) to ensure compatibility with HOARD's unencumbered distribution model, natively handle context windows of at least 32,000 tokens to encompass extensive site datasets, and demonstrate superior logical reasoning capabilities.
+
+### **Critical Analysis of May 2026 Open-Weight Candidates**
+
+The landscape presents a diverse array of architectures, each balancing parameter density against inferential throughput. A comparative analysis isolates the definitive strengths and structural compromises inherent in the latest generation of small models.
+
+| Foundation Model | Parameter Architecture | Context Window | Licensing Framework | Defining Characteristics and Relevance to HOARD |
+| :---- | :---- | :---- | :---- | :---- |
+| **Qwen3.5-4B** | 4 Billion (Dense equivalent via Gated DeltaNet) | 262,144 Tokens | Apache 2.0 | Features a unified vision-language foundation and dynamic dual-mode reasoning capabilities.1 |
+| **Gemma 4 E4B** | 4 Billion (Effective via Per-Layer Embeddings) | 128,000 Tokens | Apache 2.0 | Highly optimised for edge-device deployment, native bounding box output formatting, and exceptional memory efficiency.4 |
+| **Phi-4-mini** | 3.8 Billion (Dense) | MIT | 128,000 Tokens | Utilises distilled reasoning tokens from larger frontier models to enhance logical deduction, though lacking mature vision-language parity.7 |
+| **Llama 4 Scout** | **![][image1]**3 Billion to 8 Billion (Dense) | Llama Community License | 256,000 Tokens | Exhibits robust multi-modal grounding but is strictly disqualified due to non-permissive commercial use constraints that inhibit open distribution.9 |
+
+### **Primary Recommendation: Qwen3.5-4B**
+
+Following rigorous evaluation of the May 2026 model cohort, Qwen3.5-4B emerges as the optimal foundation model for the HOARD fine-tuning initiative.1 Developed by Alibaba Cloud and released under the commercially permissive Apache 2.0 license, this model represents a significant architectural leap.3 Its infrastructure relies on a Gated Delta Network coupled with a sparse Mixture-of-Experts (MoE) routing mechanism, delivering exceptional throughput while maintaining a minimal memory footprint during inference.2  
+The defining advantage of Qwen3.5-4B for archaeological applications is its native dual-mode execution environment. The model seamlessly transitions between a "thinking" mode—optimised for complex logical deduction and multi-step internal reflection—and an "instruct" mode tailored for rapid, general-purpose formatting.1 When HOARD executes Phase 3 (Synthesis and Drafting), the thinking mode allows the model to trace the complex topological relationships defined by a Harris Matrix, ensuring that the generated narrative accurately reflects the chronological sequence of cuts, fills, and structural phases.  
+Furthermore, Qwen3.5-4B natively supports an immense context window of 262,144 tokens, a critical necessity for HOARD.2 Archaeological datasets frequently aggregate thousands of individual context sheets, specialist reports on faunal remains, ceramic typologies, and environmental sample matrices. A standard excavation site can easily generate a textual context footprint exceeding 30,000 tokens. By avoiding the architectural crutch of context truncation or aggressive chunking, Qwen3.5-4B ensures that all relevant spatial and artefactual data remains simultaneously accessible in the attention mechanism, allowing the model to draw cross-referential insights (e.g., correlating the presence of residual Roman pottery in a Medieval ditch fill across multiple distinct site areas).
+
+### **Secondary Fallback Alternative: Gemma 4 E4B**
+
+Should empirical testing during the fine-tuning phase reveal that Qwen3.5-4B struggles with the specific jurisdiction-compliant formatting required for Phase 4, Google's newly released Gemma 4 E4B serves as the definitive fallback architecture. Released in April 2026, the Gemma 4 iteration marks a significant policy shift by adopting the permissive Apache 2.0 license, resolving previous commercial encumbrances.4  
+The E4B variant (denoting 4 Billion Effective Parameters) employs a novel Per-Layer Embedding (PLE) architecture.6 Rather than continuously routing data through a massive dense network, PLE grants each decoder layer isolated embedding tables for rapid, low-memory lookup.6 This allows the model to draw upon a broader latent knowledge base while activating only a fraction of its total parameters during any single forward pass, resulting in inference speeds and memory consumption profiles that comfortably align with HOARD's 6 GB VRAM stricture.
+
+## **2\. Training Data Curation and Corpus Preprocessing Strategy**
+
+The efficacy of parameter-efficient fine-tuning is entirely contingent upon the scale, diversity, and structural fidelity of the training corpus. General-purpose web scraping cannot replicate the precise cadence, objective tone, and specialised terminology inherent to heritage reporting. Therefore, the curation of an expansive, domain-specific dataset constructed from authenticated grey literature is the foundational prerequisite for HOARD's adaptation phase.
+
+### **Primary Archaeological Data Aggregators**
+
+The acquisition strategy targets the premier digital repositories of archaeological data, balancing geographic representation between the United Kingdom and North America to ensure the resulting model remains highly versatile across different regulatory jurisdictions.
+
+1. **The Archaeology Data Service (ADS):** Operating as the primary digital archive for UK heritage, the ADS Library houses over 50,000 unpublished grey literature fieldwork reports.16 The vast majority of these documents are distributed under Creative Commons Attribution 4.0 International (CC-BY 4.0) or permissive ADS Terms of Use, legally sanctioning their ingestion for machine learning purposes.18 Acquisition is facilitated through the OASIS (Online Access to the Index of Archaeological Investigations) dataset architecture. By querying the ADS API or utilising batch .csv exports of signed-off reports, the HOARD curation script can systematically download the associated PDF documents while retaining critical metadata, including project type, temporal span, and monument classifications.17  
+2. **tDAR (The Digital Archaeological Record):** Serving as a massive repository for North American archaeology, tDAR hosts tens of thousands of unstructured reports and compliance documents.20 Accessing tDAR requires authentication to navigate its login barriers, which were implemented to shield sensitive site data.20 However, authenticated API access permits the bulk retrieval of non-sensitive grey literature, providing the fine-tuning corpus with exposure to US-specific compliance structures and distinct geomorphological terminologies prevalent in North American contexts.  
+3. **Open Context:** Distinct from narrative-heavy archives, Open Context excels in publishing highly structured, interconnected datasets, often containing over two million item records linked via the CIDOC Conceptual Reference Model (CIDOC CRM).22 Through its API, developers can retrieve structured JSON and GeoJSON outputs detailing specialised faunal, botanical, and osteological measurements, frequently accompanied by brief narrative interpretations.24 Integrating Open Context data is vital for training the model to articulate quantitative specialist data in fluid prose.
+
+### **Advanced Multimodal Document Extraction via Docling**
+
+The fundamental bottleneck in processing legacy grey literature is the PDF format. Reports span decades of shifting technological standards, from natively digital PDF/A-3 documents embedding pristine XML data to legacy scanned manuscripts plagued by severe optical character recognition (OCR) artefacts.26 Standard extraction utilities (such as pdfplumber, textract, or PyMuPDF) operate via heuristic coordinate scraping, invariably destroying the document's logical hierarchy. They routinely strip context tables of their grid structures and inappropriately interleave image captions directly into the primary narrative stream.27  
+To circumvent this corruption, the HOARD corpus pipeline must integrate **Docling**, an open-source multimodal toolkit developed by IBM and released under the highly permissive MIT license.28 Docling represents a step-change in document ingestion by treating PDFs as visual-semantic puzzles rather than mere character streams. It deploys specialised AI models, specifically DocLayNet for complex layout analysis and TableFormer for robust table structure recognition, to generate a unified DoclingDocument representation.29  
+The application of Docling ensures that complex stratigraphic matrices, finds quantification tables, and specialist summary grids are preserved and accurately translated into markdown tables perfectly aligned with their corresponding narrative paragraphs.29 If a 1990s-era report contains a scanned typewritten context inventory, Docling's integrated OCR engine processes the image, while its layout models interpret the grid lines, yielding structured markdown that the Qwen3.5-4B model can effectively parse during training.
+
+### **Geoprivacy Redaction and Ethical Anonymisation**
+
+Unpublished fieldwork reports routinely contain highly sensitive data. The dissemination or memorisation of exact spatial coordinates poses an acute threat to heritage preservation, risking the exposure of unexcavated deposits to illicit looting.32 Furthermore, compliance with global data protection regulations necessitates the removal of Personally Identifiable Information (PII) regarding individual practitioners, property owners, and financial clients.  
+A rigid automated redaction pipeline must process the extracted Markdown text prior to its inclusion in the training corpus:
+
+* **Spatial Masking:** Custom Named Entity Recognition (NER) models and complex regular expressions must identify specific spatial vernaculars. This includes masking UK Ordnance Survey National Grid References (e.g., standardising TQ 12345 67890 to \`\`), standard geographic coordinates (latitude/longitude), and highly specific local site grid demarcations.32 Masking prevents the SLM from associating specific stratigraphies with real-world locations, completely eliminating the risk of spatial hallucination during end-user inference.  
+* **PII Anonymisation:** Standardised NLP scrubbing tools must obscure individual names, replacing them with generic entity tags such as , , or \`\`.34 This ensures the model learns the structural role of these titles within the prose without committing specific identities to its internal weights.
+
+### **Synthetic Pair Generation for Instruction Tuning**
+
+Because Qwen3.5-4B requires instruction-tuning pairs (input-output mappings) rather than simple continuous text, the extracted grey literature must be algorithmically restructured. The model must learn how to transition from raw, disjointed field data (the input) to a cohesive, professional narrative (the output).  
+The strategy requires a reverse-engineering methodology. An initial subset of 15,000 highly structured ADS reports will be parsed by a massive, frontier-class model (such as an offline local deployment of a 70B parameter architecture or a temporary, isolated cloud instance solely for dataset preparation). This frontier model will analyse the human-written stratigraphic narratives and deduce the underlying raw data that informed them, generating a synthetic JSON block representing hypothetical context sheets. This process yields a perfect instructional pair: the synthetic raw JSON acts as the prompt, and the authentic, human-authored grey literature acts as the target output. This forces the fine-tuning algorithm to map structured quantitative variables directly to the qualitative register of the discipline.
+
+## **3\. Parameter-Efficient Fine-Tuning (PEFT) Methodology**
+
+The hard constraint of executing the fine-tuning process on a consumer GPU (between 12 GB and 24 GB VRAM) while targeting a 6 GB inference environment fundamentally eliminates the possibility of full-parameter fine-tuning.36 Updating all four billion parameters of Qwen3.5-4B requires vast quantities of memory for optimiser states and gradients. The definitive solution is Quantised Low-Rank Adaptation (QLoRA), which freezes the base model weights in a highly compressed 4-bit quantisation format and injects small, trainable low-rank matrices into the transformer architecture.37
+
+### **The Unsloth Framework and Advanced Hyperparameters**
+
+To maximise VRAM efficiency and accelerate the convergence rate, the fine-tuning process must utilise the **Unsloth** library in conjunction with the Hugging Face TRL (Transformer Reinforcement Learning) suite.37 Unsloth implements custom Triton kernels that bypass standard PyTorch overheads, allowing models to train up to twice as fast while consuming substantially less memory.37 This memory efficiency is paramount, as it permits the use of longer context windows during the training phase.  
+**Strategic QLoRA Configuration:**
+
+* **Rank (![][image2]) and Alpha (![][image3]) Scaling:** Standard instruction-tuning tasks often utilise a low rank (e.g., ![][image4]). However, archaeological domain adaptation requires profound stylistic and semantic realignment; the model must effectively learn a distinct scientific dialect. Therefore, the rank must be elevated to ![][image5], with the alpha scaling parameter matched to ![][image6] to maintain update magnitude stability.  
+* **Target Modules:** To ensure maximum flexibility and prevent catastrophic forgetting of base linguistic competence, the LoRA adapters must be applied comprehensively across all linear layers within both the attention mechanisms and the feed-forward networks.39 For Qwen3.5-4B, Unsloth must target \["q\_proj", "k\_proj", "v\_proj", "o\_proj", "gate\_proj", "up\_proj", "down\_proj"\]. This broad injection strategy ensures the model can adjust its logical routing as effectively as its vocabulary generation.  
+* **Base Quantisation:** The foundational model weights should be loaded using Unsloth Dynamic 2.0 quantisation, which intelligently upcasts critical layers to 8-bit or 16-bit precision while maintaining the bulk of the parameters in 4-bit NormalFloat (NF4) format.1 This preserves the high-fidelity prose capabilities required for formal writing.  
+* **Sequence Length and Packing:** Given that individual archaeological report sections (such as a multi-phase trench narrative) can extend for thousands of words, the training sequence length (max\_seq\_length) should be set to 8,192 tokens.38 Utilising Unsloth's efficient memory management, an 8K context window easily fits within a 24 GB VRAM envelope when operating with a per-device batch size of 1 and a gradient accumulation step of 16 to stabilise the weight updates.
+
+### **Instruction Formatting and Chat Templates**
+
+Qwen3.5-4B is highly sensitive to the structural integrity of its prompt template. The training pairs must be rigorously formatted using the model's native ChatML tokenisation schema, ensuring the LoRA adapters map the instructional intent accurately without confusing system directives with user data.1  
+A representative training input mapping the transformation of context data into a formal narrative requires strict JSON structuring within the user prompt:
+
+XML  
+\<|im\_start|\>system  
+You are an expert commercial geoarchaeologist. Synthesise the provided tabular context data into a continuous, publication-ready stratigraphic narrative. Employ strict chronostratigraphic logic and standard sedimentological terminology.  
+\<|im\_end|\>  
+\<|im\_start|\>user  
+\#\#\# Structural Field Data:  
+\[  
+  {"context": "1001", "type": "cut", "profile": "U-shaped", "fill\_sequence": \["1002", "1003"\], "interpretation": "Boundary ditch"},  
+  {"context": "1002", "type": "deposit", "comp": "friable dark greyish-brown silty loam", "inclusions": "occasional charcoal flecks", "finds": \["Medieval coarseware (15g)"\]},  
+  {"context": "1003", "type": "deposit", "comp": "firm mid-yellowish brown clayey silt", "inclusions": "frequent sub-angular chalk", "finds":}  
+\]
+
+\#\#\# Instruction:  
+Draft the phase narrative for the boundary ditch sequence, establishing the depositional history.  
+\<|im\_end|\>  
+\<|im\_start|\>assistant  
+Phase 3 activity within Trench 1 is characterised by a prominent linear boundary ditch, cut 1001\. Exhibiting a steep, U-shaped profile, the feature was subject to a multi-phase infilling sequence. The primary basal fill, 1003, consisted of a firm mid-yellowish brown clayey silt containing frequent sub-angular chalk inclusions, indicative of rapid natural weathering and slumping of the adjacent chalk natural. This was overlain by a secondary deposit, 1002, comprising a friable dark greyish-brown silty loam with occasional charcoal flecking. The recovery of 15g of Medieval coarseware from this upper fill provides a terminus post quem for the final silting and subsequent abandonment of the boundary feature.  
+\<|im\_end|\>
+
+### **Evaluation Framework and Quality Thresholds**
+
+Standard natural language processing metrics, such as ROUGE or BERTScore, are entirely inadequate for assessing archaeological grey literature. A model could achieve a high ROUGE score by generating structurally identical sentences while fundamentally violating stratigraphic logic. Evaluation must rely on rigid domain-specific criteria evaluated against a held-out test set of 500 reports.
+
+1. **Stratigraphic Logic Assessment (Automated Graph Verification):** During evaluation, a Python script will extract the context relationships from the input JSON to build a directed acyclic graph representing the Harris Matrix. A deterministic parser will then analyse the model's output to ensure the temporal sequence is respected (e.g., verifying that the model textually describes the excavation of the cut prior to detailing the deposition of its fills). Any inversion of this chronological topology constitutes a critical failure.  
+2. **Terminological Precision (Vocabulary Matching):** The model's output will be scanned against a comprehensive glossary of standard sedimentological terms (e.g., the Munsell colour schema, standard inclusion density terminology). The system must differentiate correctly between distinct engineering profiles, penalising the use of colloquialisms or reversed terms (e.g., distinguishing accurately between "sandy clay" and "clayey sand").  
+3. **Hallucination Rate (LLM-as-a-Judge):** A frontier model (utilised purely via API for offline evaluation metrics during development) will be tasked with cross-referencing the generated draft against the raw input data. It will identify and flag any fabricated context numbers, invented finds weights, or hallucinated artefactual typologies. For the model to pass the quality threshold, the measurable factual hallucination rate must be zero.
+
+## **4\. Cost-Benefit Matrix: Fine-Tuning Versus Alternative Architectures**
+
+The decision to execute a computationally demanding fine-tuning protocol on 50,000 documents must be rigorously justified. The HOARD pipeline architecture must discern when the permanent alteration of model weights provides superior value compared to dynamic prompt engineering or Retrieval-Augmented Generation (RAG).
+
+### **Phase 3: Synthesis & Drafting Analysis**
+
+Phase 3 requires the model to fundamentally understand the scientific principles of archaeology and translate quantitative data grids into a highly specific qualitative prose style.
+
+* **The Fine-Tuning Yield:** Exceptionally high. A QLoRA adapter trained exclusively on high-quality ADS and tDAR grey literature fundamentally alters the probability distribution of the model's token generation. It eradicates the verbose, overly enthusiastic tone characteristic of base instruction-tuned LLMs, replacing it with the objective, passive-voice density required by heritage authorities. It embeds an implicit understanding of stratigraphic superposition directly into the attention heads.  
+* **Investment vs. Risk:** Generating the synthetic dataset and running the Unsloth training loop will require an estimated 60 to 80 GPU-hours on an RTX 4090 architecture. The risk of catastrophic forgetting is negligible, as the HOARD deployment environment never requires the model to perform out-of-domain tasks (such as general python coding or conversational chat). The permanent behavioural shift acquired through fine-tuning is mandatory for Phase 3 success.
+
+### **Phase 4: Compliance Refinement Analysis**
+
+Phase 4 tasks the system with restructuring the generated Phase 3 draft to conform precisely to specific, regional jurisdiction templates (e.g., aligning headings to meet the specific mandates of an Ontario ERO 026-0216 Stage 4 report versus a Historic England compliance standard).
+
+* **The Fine-Tuning Yield:** Negligible to negative. Compliance templates are bureaucratic documents subject to frequent updates, legislative revisions, and regional stylistic variations. Baking specific template structures into the model's fundamental weights ensures rapid obsolescence. If a heritage authority updates its standard wording requirements, the fine-tuned model becomes instantly invalid and requires complete retraining.  
+* **The Superior Alternative:** Phase 4 should rely entirely on prompt engineering augmented by a lightweight Retrieval-Augmented Generation (RAG) system. By storing the latest PDF guidelines and template mandates in a local vector database, the pipeline can dynamically inject the most current rules into the model's context window at inference time. The SLM, utilising its robust instruction-following capabilities, simply applies the current compliance rules to the Phase 3 draft.
+
+This hybrid architecture represents the most resilient strategy: **Fine-tune for enduring behavioural and scientific mastery (Phase 3), but leverage RAG and prompt engineering for transient, rules-based compliance (Phase 4).**
+
+## **5\. Deployment Optimisation for the 6 GB VRAM Target**
+
+The ultimate technical hurdle for HOARD is transitioning the vast capabilities of a fine-tuned 4 billion parameter model into a consumer-grade 6 GB VRAM environment typical of field laptops. Deploying multiple isolated models for different pipeline phases is physically impossible under this constraint. The solution lies in advanced quantisation and the dynamic multiplexing capabilities of the llama.cpp inference engine.
+
+### **GGUF Quantisation and VRAM Arithmetic**
+
+Following the successful completion of the Unsloth QLoRA training loop, the resulting adapter weights must remain separate from the base model. The base Qwen3.5-4B model must be converted into the GGUF (.gguf) format, the industry standard for highly efficient CPU/GPU execution.  
+The base weights will be subjected to Q4\_K\_M quantisation, a methodology that compresses the majority of the model into 4-bit integers while preserving higher precision for critical attention tensors. A Q4\_K\_M quantisation reduces the 4B parameter model footprint to approximately 2.5 GB to 2.8 GB on disk and in VRAM. Simultaneously, the newly trained LoRA adapter (containing only the ![][image5] weight modifications) is converted into a separate, highly compact .gguf file occupying merely 50 MB to 100 MB of space.39  
+The VRAM budget for inference on an RTX 3060 (6 GB) is strictly partitioned:
+
+* **Base Model Weights:** 2.8 GB  
+* **LoRA Adapter Weights:** 0.1 GB  
+* **Key-Value (KV) Cache Reserve:** 3.1 GB
+
+The KV cache is the memory space required to store the attention states of the prompt and the generated text. Allocating 3.1 GB entirely to the KV cache allows the model to comfortably process sequence lengths approaching 16,000 to 20,000 tokens without triggering Out-Of-Memory (OOM) errors, guaranteeing the ability to process dense site archives.
+
+### **Dynamic Multiplexing via llama.cpp Router Mode**
+
+The breakthrough deployment mechanism enabling HOARD's multi-stage pipeline relies on the HTTP server implementation within llama.cpp (llama-server).40 Recent architectural updates to llama.cpp allow the inference engine to operate in "router mode," serving as a local API backend that dynamically manages multiple LoRA adapters simultaneously without ever duplicating the base model weights in VRAM.40  
+By utilising the \--lora and \--lora-scaled command-line parameters, the server loads the 2.8 GB base model into memory permanently.40 As the HOARD Python application moves through the pipeline, it dictates which adapter to apply on a per-request basis. When Phase 3 executes, the llama-server scales the Phase 3 Synthesis LoRA adapter into the active computation graph at 100% strength, synthesising the raw data into prose. If a Phase 4 compliance refinement is requested subsequently, the server instantaneously zeros out the Phase 3 adapter and scales in a different task-specific adapter (if one is developed) or reverts to the pristine base weights for RAG execution.42  
+This dynamic hot-swapping eradicates load latency and ensures the entire multi-phase ecosystem operates fluidly within the 6 GB ceiling.44
+
+### **Update Strategy and Version Control**
+
+Maintaining the LoRA adapters independent of the base model revolutionises the HOARD software update cycle. When the development team expands the training corpus or refines the fine-tuning methodology, they do not need to issue a massive 3 GB update to the user base. Instead, the application merely downloads a new 100 MB .gguf adapter file. This modular update strategy is crucial for archaeological units operating in remote locations via low-bandwidth satellite or cellular connections, ensuring the software remains current without exorbitant data costs.
+
+## **6\. Implementation Roadmap and Risk Register**
+
+### **Phased Execution Roadmap**
+
+The implementation of the fine-tuning strategy requires a sequential, four-phase rollout over an estimated fourteen-week development cycle.
+
+* **Phase 1: Infrastructure and Corpus Aggregation (Weeks 1-4):** Establish robust API connections to the Archaeology Data Service and tDAR.16 Deploy the Docling toolkit across isolated compute instances to execute batch layout-aware PDF extraction on 50,000 documents.29 Finalise and deploy the Regex/NER redaction scripts to completely anonymise geospatial coordinates and PII, establishing a sanitised repository.32  
+* **Phase 2: Synthetic Pair Generation (Weeks 5-8):** Deploy an isolated, frontier-class LLM to ingest the highest quality subset of the extracted grey literature. Execute the reverse-engineering scripts to generate the massive JSON-to-Prose instruction-tuning dataset required for the QLoRA pipeline.  
+* **Phase 3: Fine-Tuning and Evaluation (Weeks 9-12):** Initialise the Unsloth library on a dedicated 24 GB GPU environment (e.g., RTX 4090). Execute parameter sweeps to finalise the learning rate and gradient accumulation configurations.37 Run the QLoRA training loops, generating multiple intermediate checkpoints. Pass these checkpoints through the automated Harris Matrix graph verification script and the LLM-as-a-Judge hallucination assessments to isolate the optimal model weights.  
+* **Phase 4: Deployment Integration (Weeks 13-14):** Convert the optimal adapter checkpoint to the .gguf format. Integrate the llama-server binary into the local HOARD Python backend, configuring the \--lora-scaled routing mechanics.42 Conduct extensive edge-case testing on physical RTX 4060 (8 GB) and RTX 3060 (6 GB) hardware to validate VRAM consumption profiles and guarantee absolute operational stability.
+
+### **Comprehensive Risk Register**
+
+To ensure the resilience of the HOARD pipeline, critical failure vectors must be anticipated and mitigated prior to the commencement of the training protocols.
+
+| Risk Identifier | Description | Probability | Operational Impact | Mitigation Strategy |
+| :---- | :---- | :---- | :---- | :---- |
+| **Dataset Toxicity via OCR Failure** | Legacy scanned PDFs from the 1990s introduce severe optical character recognition artefacts, corrupting the linguistic distribution of the fine-tuning corpus. | High | Medium | Rely strictly upon Docling's advanced visual layout parsing.30 Implement aggressive pre-training heuristic filters to isolate and discard any document exhibiting high non-dictionary character counts or broken grid structures. |
+| **KV Cache VRAM Overflow** | Processing exceptionally dense site datasets (e.g., massive urban excavations with thousands of contexts) pushes the KV cache beyond the allocated 3.1 GB reserve, causing a hard out-of-memory (OOM) application crash. | High | Critical | Implement dynamic context window monitoring within the HOARD Python backend. If the token count of a single site phase approaches 18,000 tokens, the pipeline must seamlessly activate an automated chunking heuristic, processing the site chronologically block-by-block to preserve VRAM stability. |
+| **Catastrophic Forgetting** | The aggressive rank 32 QLoRA fine-tune overrides the model's fundamental linguistic competence, resulting in grammatical degradation or an inability to follow basic system instructions. | Medium | High | Maintain the alpha scaling ratio precisely at ![][image7]. Utilise a conservative cosine learning rate schedule, and ensure the training dataset contains a small subset of general instructional data to anchor the foundation model's latent spatial mappings. |
+| **Ethical Geoprivacy Breach** | Failure of the spatial redaction pipeline allows the model to memorise exact spatial coordinates, potentially leading to the hallucination of sensitive, unexcavated site locations. | Low | Critical | Institute multi-layered redundancy within the redaction scripts, combining both regex pattern matching and advanced NLP entity recognition.32 Post-training, subject the model to aggressive adversarial probing specifically designed to trick the system into outputting valid UK National Grid References. The model must fail these probes completely to be authorised for deployment. |
+
+#### **Works cited**
+
+1. Qwen3.5 \- How to Run Locally | Unsloth Documentation, accessed May 25, 2026, [https://unsloth.ai/docs/models/qwen3.5](https://unsloth.ai/docs/models/qwen3.5)  
+2. Qwen/Qwen3.5-4B \- Hugging Face, accessed May 25, 2026, [https://huggingface.co/Qwen/Qwen3.5-4B](https://huggingface.co/Qwen/Qwen3.5-4B)  
+3. LICENSE · Qwen/Qwen3.5-4B at main \- Hugging Face, accessed May 25, 2026, [https://huggingface.co/Qwen/Qwen3.5-4B/blob/main/LICENSE](https://huggingface.co/Qwen/Qwen3.5-4B/blob/main/LICENSE)  
+4. Gemma 4: Byte for byte, the most capable open models \- Google Blog, accessed May 25, 2026, [https://blog.google/innovation-and-ai/technology/developers-tools/gemma-4/](https://blog.google/innovation-and-ai/technology/developers-tools/gemma-4/)  
+5. Gemma 4: What Computer Vision Engineers Actually Need to Know | Datature Blog, accessed May 25, 2026, [https://datature.io/blog/gemma-4-what-computer-vision-engineers-actually-need-to-know](https://datature.io/blog/gemma-4-what-computer-vision-engineers-actually-need-to-know)  
+6. google/gemma-4-E4B \- Hugging Face, accessed May 25, 2026, [https://huggingface.co/google/gemma-4-E4B](https://huggingface.co/google/gemma-4-E4B)  
+7. An Automated Survey of Generative Artificial Intelligence: Large Language Models, Architectures, Protocols, and Applications \- arXiv, accessed May 25, 2026, [https://arxiv.org/html/2306.02781v4](https://arxiv.org/html/2306.02781v4)  
+8. The Smol Training Playbook \- a Hugging Face Space by HuggingFaceTB, accessed May 25, 2026, [https://huggingface.co/spaces/HuggingFaceTB/smol-training-playbook](https://huggingface.co/spaces/HuggingFaceTB/smol-training-playbook)  
+9. The Best Open Source and Open-Weight LLM Models to Run Locally in 2026, accessed May 25, 2026, [https://huggingface.co/blog/daya-shankar/open-source-llm-models-to-run-locally](https://huggingface.co/blog/daya-shankar/open-source-llm-models-to-run-locally)  
+10. Top 7 open source LLMs for 2026 \- NetApp Instaclustr, accessed May 25, 2026, [https://www.instaclustr.com/education/open-source-ai/top-7-open-source-llms-for-2026/](https://www.instaclustr.com/education/open-source-ai/top-7-open-source-llms-for-2026/)  
+11. The Llama 4 herd: The beginning of a new era of natively multimodal AI innovation \- Meta AI, accessed May 25, 2026, [https://ai.meta.com/blog/llama-4-multimodal-intelligence/](https://ai.meta.com/blog/llama-4-multimodal-intelligence/)  
+12. Qwen3.5 | Guides \- Clore.ai, accessed May 25, 2026, [https://docs.clore.ai/guides/language-models/qwen35](https://docs.clore.ai/guides/language-models/qwen35)  
+13. Qwen/Qwen3-1.7B \- Hugging Face, accessed May 25, 2026, [https://huggingface.co/Qwen/Qwen3-1.7B](https://huggingface.co/Qwen/Qwen3-1.7B)  
+14. Google Gemma 4 Open Models Apache 2.0 License | by Tahir | Apr, 2026 | Medium, accessed May 25, 2026, [https://medium.com/@tahirbalarabe2/google-gemma-4-open-models-apache-2-0-license-96bb49f76a39](https://medium.com/@tahirbalarabe2/google-gemma-4-open-models-apache-2-0-license-96bb49f76a39)  
+15. Welcome Gemma 4: Frontier multimodal intelligence on device, accessed May 25, 2026, [https://huggingface.co/blog/gemma4](https://huggingface.co/blog/gemma4)  
+16. Linked Data for the Historic Environment \- Internet Archaeology, accessed May 25, 2026, [https://intarch.ac.uk/journal/issue59/7/full-text.html](https://intarch.ac.uk/journal/issue59/7/full-text.html)  
+17. Review of the Standard of Reporting on Archaeological Artefacts in England, accessed May 25, 2026, [https://www.archaeologists.net/sites/default/files/2024-12/CIfA-HE-Reporting-of-Archaeological-Artefacts-Standard-Review.pdf](https://www.archaeologists.net/sites/default/files/2024-12/CIfA-HE-Reporting-of-Archaeological-Artefacts-Standard-Review.pdf)  
+18. FAQs \- Archaeology Data Service, accessed May 25, 2026, [https://archaeologydataservice.ac.uk/help-guidance/faqs/](https://archaeologydataservice.ac.uk/help-guidance/faqs/)  
+19. Twenty Years Preserving Data | Advances in Archaeological Practice | Cambridge Core, accessed May 25, 2026, [https://www.cambridge.org/core/journals/advances-in-archaeological-practice/article/twenty-years-preserving-data/4B801489107ECB1773E3618F47D2DBD2](https://www.cambridge.org/core/journals/advances-in-archaeological-practice/article/twenty-years-preserving-data/4B801489107ECB1773E3618F47D2DBD2)  
+20. Developing the Cyberinfrastructure for a National Archaeological Site Database \- Heritage Bytes, accessed May 25, 2026, [http://ux.opencontext.org/wp-content/uploads/2012/09/DINAA-NASD-Technical-Proposal-2011.pdf](http://ux.opencontext.org/wp-content/uploads/2012/09/DINAA-NASD-Technical-Proposal-2011.pdf)  
+21. Providing Information and Public Outreach Across Three U.S. State Archaeology Offices During the Age of Open Access \- LSU Scholarly Repository, accessed May 25, 2026, [https://repository.lsu.edu/cgi/viewcontent.cgi?article=5626\&context=gradschool\_theses](https://repository.lsu.edu/cgi/viewcontent.cgi?article=5626&context=gradschool_theses)  
+22. Highlights \- Open Context, accessed May 25, 2026, [https://opencontext.org/highlights/](https://opencontext.org/highlights/)  
+23. Digital Humanities Resources for Project Building – Data Collections & Datasets \- DH Toychest, accessed May 25, 2026, [http://dhresourcesforprojectbuilding.pbworks.com/w/page/69244469/Data%20Collections%20and%20Datasets](http://dhresourcesforprojectbuilding.pbworks.com/w/page/69244469/Data%20Collections%20and%20Datasets)  
+24. About \- API Cookbook \- Open Context, accessed May 25, 2026, [https://opencontext.org/about/recipes](https://opencontext.org/about/recipes)  
+25. Module 2 Exercises \- HIST3814o Crafting Digital History, accessed May 25, 2026, [https://workbook.craftingdigitalhistory.ca/module-2/Exercises/](https://workbook.craftingdigitalhistory.ca/module-2/Exercises/)  
+26. The Use of PDF/A in Digital Archives: A Case Study from Archaeology, accessed May 25, 2026, [https://ijdc.net/index.php/ijdc/article/download/9.2.123/374/1399](https://ijdc.net/index.php/ijdc/article/download/9.2.123/374/1399)  
+27. I Tested 7 Python PDF Extractors So You Don't Have To (2025 Edition) \- Aman Kumar, accessed May 25, 2026, [https://onlyoneaman.medium.com/i-tested-7-python-pdf-extractors-so-you-dont-have-to-2025-edition-c88013922257](https://onlyoneaman.medium.com/i-tested-7-python-pdf-extractors-so-you-dont-have-to-2025-edition-c88013922257)  
+28. docling/LICENSE at main \- GitHub, accessed May 25, 2026, [https://github.com/docling-project/docling/blob/main/LICENSE](https://github.com/docling-project/docling/blob/main/LICENSE)  
+29. GitHub \- docling-project/docling: Get your documents ready for gen AI, accessed May 25, 2026, [https://github.com/docling-project/docling](https://github.com/docling-project/docling)  
+30. Docling: An Efficient Open-Source Toolkit for AI-driven Document Conversion for AAAI 2025, accessed May 25, 2026, [https://research.ibm.com/publications/docling-an-efficient-open-source-toolkit-for-ai-driven-document-conversion](https://research.ibm.com/publications/docling-an-efficient-open-source-toolkit-for-ai-driven-document-conversion)  
+31. Best PDF Parsers for AI and RAG Workflows in 2026 \- Firecrawl, accessed May 25, 2026, [https://www.firecrawl.dev/blog/best-pdf-parsers](https://www.firecrawl.dev/blog/best-pdf-parsers)  
+32. Privacy risk in GeoData: A survey \- arXiv, accessed May 25, 2026, [https://arxiv.org/html/2402.03612v2](https://arxiv.org/html/2402.03612v2)  
+33. Ethical guidelines for geoprivacy: a framework for researchers and ethics committees \- PMC, accessed May 25, 2026, [https://pmc.ncbi.nlm.nih.gov/articles/PMC13092162/](https://pmc.ncbi.nlm.nih.gov/articles/PMC13092162/)  
+34. PII Redaction Best Practices for Protecting Customer Data \- Tungsten Automation, accessed May 25, 2026, [https://www.tungstenautomation.com/learn/blog/pii-redaction-best-practices-how-to-protect-customer-data-across-all-formats](https://www.tungstenautomation.com/learn/blog/pii-redaction-best-practices-how-to-protect-customer-data-across-all-formats)  
+35. Re-Identification of “Anonymized” Data \- Georgetown Law Technology Review, accessed May 25, 2026, [https://georgetownlawtechreview.org/re-identification-of-anonymized-data/GLTR-04-2017/](https://georgetownlawtechreview.org/re-identification-of-anonymized-data/GLTR-04-2017/)  
+36. A comprehensive overview of everything I know about fine-tuning. : r/LocalLLaMA \- Reddit, accessed May 25, 2026, [https://www.reddit.com/r/LocalLLaMA/comments/1ilkamr/a\_comprehensive\_overview\_of\_everything\_i\_know/](https://www.reddit.com/r/LocalLLaMA/comments/1ilkamr/a_comprehensive_overview_of_everything_i_know/)  
+37. Qwen3 \- How to Run & Fine-tune | Unsloth Documentation, accessed May 25, 2026, [https://unsloth.ai/docs/models/tutorials/qwen3-how-to-run-and-fine-tune](https://unsloth.ai/docs/models/tutorials/qwen3-how-to-run-and-fine-tune)  
+38. Qwen3.5 Fine-tuning Guide | Unsloth Documentation, accessed May 25, 2026, [https://unsloth.ai/docs/models/qwen3.5/fine-tune](https://unsloth.ai/docs/models/qwen3.5/fine-tune)  
+39. How to Fine-Tune Google Gemma 270M with Unsloth and QLoRA | Codecademy, accessed May 25, 2026, [https://www.codecademy.com/article/how-to-fine-tune-google-gemma-270m-with-unsloth-and-qlora](https://www.codecademy.com/article/how-to-fine-tune-google-gemma-270m-with-unsloth-and-qlora)  
+40. llama.cpp/tools/server/README.md at master · ggml-org/llama.cpp · GitHub, accessed May 25, 2026, [https://github.com/ggml-org/llama.cpp/blob/master/tools/server/README.md](https://github.com/ggml-org/llama.cpp/blob/master/tools/server/README.md)  
+41. llama-server(1) — llama.cpp-tools — Debian unstable \- Debian Manpages, accessed May 25, 2026, [https://manpages.debian.org/unstable/llama.cpp-tools/llama-server.1.en.html](https://manpages.debian.org/unstable/llama.cpp-tools/llama-server.1.en.html)  
+42. adds \--lora and \--lora-scaled support (aligned with llama.cpp api)\#786 \- GitHub, accessed May 25, 2026, [https://github.com/mozilla-ai/llamafile/pull/786](https://github.com/mozilla-ai/llamafile/pull/786)  
+43. examples/export-lora · gguf-v0.4.3 \- Llama.Cpp \- GitLab, accessed May 25, 2026, [https://gitlab.informatik.uni-halle.de/ambcj/llama.cpp/-/tree/gguf-v0.4.3/examples/export-lora](https://gitlab.informatik.uni-halle.de/ambcj/llama.cpp/-/tree/gguf-v0.4.3/examples/export-lora)  
+44. EdgeLoRA: An Efficient Multi-Tenant LLM Serving System on Edge Devices \- arXiv, accessed May 25, 2026, [https://arxiv.org/html/2507.01438v1](https://arxiv.org/html/2507.01438v1)
+
+[image1]: <data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAWCAYAAADwza0nAAAAcElEQVR4XmNgGAWjgFIgAsR5QBwJxOxocsiAEYh1YRxOIE6BCoKAAxBfBGJumAIkkAzECTBOBkIcDjiA+BAQy6OJXwNiYRhnEZIEMggB4g9AvBiIA4C4EojTkRVUIXPQgBIQrwPi/0C8F01uFAwOAACfzgxXHfDFKwAAAABJRU5ErkJggg==>
+
+[image2]: <data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAoAAAAaCAYAAACO5M0mAAAAaUlEQVR4XmNgGAUDAoyBeCsQRwExLxBPB+LTQLwXWREInAFiVSD+C8QXgdgWyj+HrCgciL2h7O9AzAFlGwBxMpSNAtSBeDe6IDaQBcS16ILYwAoGiNvwApC1/9EFsQFzIP6ELjgKBhAAADNGDo9EijTUAAAAAElFTkSuQmCC>
+
+[image3]: <data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA0AAAAaCAYAAABsONZfAAAAoUlEQVR4XmNgGAUjBsQC8UYgvgPEZ4DYD1UaE6wC4p8MEI3MULH/QBwCZXNAaThIA+Lt6IJAcIgBolEHiHeiyTEcZ4DYgA42MUA0dQPxLGQJKaiEBLIgFKxkgMg9BWIRZAk9qAQ2sIwBIpeBLgECuUBsicRXAOIOIG5ngGiqAGJZJHkwYATid0C8C4hXA/F6IPaCyi0G4ptAfB7KHwXDGQAAeBkeLcGX4q0AAAAASUVORK5CYII=>
+
+[image4]: <data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAZCAYAAAB3oa15AAABSElEQVR4Xu2VMUsDQRCFR2OhEhDFYCeIYGcbLKztbEQEESGtgYAIamnsoo2NjVb6NxQLeysRrewECyUSm6Ai+iazB3svalIdi+wHH8m+mYVdMncRiUT+LRewAW/gDtWCpwpnYR8chacw7zeEzC684hBccxAqB/CdQ3DJQahswy+46GVjcMlbB804fBW7xB4swDPY4zcx+vNUxDbdwg147Nb6EP1GTaynWx9sW1f4+5pUSzENz8VeVdp84nL9XoeDbp0lZTgn9jx8iJ1lIdXhoQWdL72ENhZdvgknk6YMWRU7R8IMvIcvcMTL23iDzzDHhQzROb+DR5QPi11qnvIU2rDGYQf2pX3O//IR9rZ2/oyOs/Ytc0EsX+HQRxumOMyYfvgED7kg9t8wwWHCkNichUAJflKm59uiLHj0LbTuPgeoFolEIpFIi297h1Ar5jGCHgAAAABJRU5ErkJggg==>
+
+[image5]: <data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADoAAAAaCAYAAADmF08eAAAB/UlEQVR4Xu2XTShmURjHnwwmNkyy87Gx8rHRlIVGSXayGLOYBYtpSmwUzTQJCws1yveWDc1+GmNsLJQ0mZQkko0FMWUWVpqQ+P97zu2ee973xULu+9b51a+c5z6ue74fIh6P5wkpgBPwGP6En+GLSIZSDv/CI7gIq6KP05tX8AAOw2K4AG/hDzsJNMJT2ArH4Q38H8lIc8bgIWww7QrRjtImE8uGe3DAtEm3aA4HKiPYFP3g36adBa9MjINAWuA/mGPaJBeewR4rltYUwY+w0LRrJJzRNyb21YrZbMBlJ5YxjIh26I8Vq4UX8JsV4+xewkkrlkCl6JL5JLpU+kVHp9NOioG3ost2F5Y6z1zeiQ4I+5IS7oc+0cR92CU6WtfwpZXnwj0TLKHHuK6/9iiCd3PfNTvPkrEliUs5AketDa6JJlabOGe3JEiKEd6fvEb4be+dZ6RM9GBaET2QHoSzxws6Hfkl2lEWBi7bcBXmuQ9SwRfNu8FnJh+OwkGJzs60hMvfhufJkkQ72WH9nBS+5IMbfABWJO4+vE8ecPfRK2FuuxWfs+I2/PssHmxmnXYE3lk7bjAG+B0n8LuEFc5rCQuGehOrE91q7kBSnjkp4QH0xQ3GBAtzzjzvyRnRov1c9MAMmJLEDgaywMgoWBQMif7nwmrJ4/F4PB5PTNwBgA6FlHFuEI8AAAAASUVORK5CYII=>
+
+[image6]: <data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAD0AAAAaCAYAAAAEy1RnAAACHklEQVR4Xu2XTUhUURTHT+YHRIguJOxjkYQi2N520a6CIlpIRCRBLURd6cKF4CIXZroLMmiR0SLBFmVEVCIkVpsWUZGI6EYXLiIQdRGh/z/nPOe+O5+rmXlxf/DDOefcefPuzH3nXkUCgUAJOQC74Xc4C8dgQ2yEcgh+hb/hArwWLyeLaTgF22EX3IUr8Jgz5gj8AS/DPrhh4xLJRbgFe5zcL9EJ3XNyD+B7J26F/+A5J5cYRkUnSOst99LibxbXWnzG4giujldeLhFUwpvwlJNbFZ3ksMXnLfaX813L1Xj5xHFWdCI78ITl2MB+wi8WR7wWfRTychW+gMvwA7wVL5ccNqtN0Wc9F+zu23DAL/g8FX3478AqeEP0W+23+lt42F5n4pOkllmhFsoFSb2H3bk6Xk6DS59jcy5t/qJzfhI8E30ztwJ+cDnwRPSe+NeHP9ZHuAZPerU05uFtPym6FfADxkUPCeVAr2RfKfwi1mGLX/BpFL1Ak18A90Vr3CtLQSd8KPGDCJ/nbJNmL2p2Yj4KB514nzbJfAEyIlrjfpmPz5K6mULNRzTusZPrcPIulyTV0SO4zLPC4517ejkqugWw+/Hij8xiL/E3cFH0hEXYSNnBeU9DluPhZMlyvhM2JiOczB/4Dj6HM6IHA8JOyGVz3eJiUgcn4V/RRst/KDgZrsAKG3PFcpmMdp5Eclz0Sx+Ep71aIBAIBAKB/4g9GtKR+rYHxkMAAAAASUVORK5CYII=>
+
+[image7]: <data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAC0AAAAWCAYAAABUpxX0AAAAzUlEQVR4XmNgGAWjYBSMglEwCmgIlgLxXyBOA2JWIE4F4v9AXASV3w3EXFD2oAEgB0Yj8RmB+BYQfwBiPiBegSSHDZxkgJhBCqYIJALxIXRBIFjJADHcG4jd0OQGHIAcnIIuCAQzGSCO7kaXGGigy4A7qnoYIHJt6BJYwAkGzOgnhMkGTED8BF0QCGSAeD8DxPBKNLlBATKB2BGJL80ACbkKBoijQclkDpL8oACgkuITEO9igGS+TUDMDJXrAOIHQBwG5Y+CUTAKRgEDAwDgEjga28HVxwAAAABJRU5ErkJggg==>

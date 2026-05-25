@@ -1,0 +1,21 @@
+{
+  "source_file": "ctx_001.png",
+  "model": "chandra-ocr-2",
+  "context_number": "[101]",
+  "type": "layer",
+  "cut_by": [],
+  "cuts": [],
+  "same_as": null,
+  "fills": ["[102]"],
+  "filled_by": [],
+  "description": "Dark greyish-brown silty loam. Moderate frequency sub-angular flint inclusions (5-20mm). Occasional charcoal flecks. Firm compaction. Clear horizon at base.",
+  "interpretation": "Topsoil / ploughsoil horizon. Modern ground surface prior to excavation.",
+  "period": "Modern",
+  "finds": [
+    {"type": "pottery", "qty": 3, "period": "Post-medieval", "notes": "Glazed red earthenware"},
+    {"type": "CBM", "qty": 5, "period": "Post-medieval", "notes": "Fragmentary roof tile"},
+    {"type": "glass", "qty": 2, "period": "Modern", "notes": "Green bottle glass"}
+  ],
+  "samples": [],
+  "sketch_present": false
+}
