@@ -10,14 +10,14 @@ Targets 6 GB VRAM, runs entirely on consumer hardware. Zero API calls, zero data
 
 ## Pipeline
 
-| Phase | Name | What it does | GPU? |
-|---|---|---|---|
-| 0 | Ingestion & Triage | Inventory files, normalise formats, assess quality, flag problems | No |
-| 1 | Multi-Modal Digitisation | OCR for handwritten forms, checkbox extraction, table parsing | Yes |
-| 2 | Spatial Reconstruction | Photo captioning, visual grounding, sketch-to-CAD geometry | Yes |
-| 3 | Synthesis & Drafting | Reason through full site dataset, produce structured draft | Yes |
-| 4 | Compliance Refinement | Restructure draft to match jurisdiction template conventions | Yes |
-| 5 | Assembly & Export | Compile figures/tables/appendices, export DOCX/PDF/archive | No |
+| Phase | Name | What it does | GPU? | Status |
+|---|---|---|---|---|---|
+| 0 | Ingestion & Triage | Inventory files, normalise formats, assess quality, flag problems | No | ✅ Complete |
+| 1 | Multi-Modal Digitisation | GLM-OCR for handwritten forms, checkbox extraction, Docling table parsing | Yes | ✅ Complete |
+| 2 | Spatial Reconstruction | Qwen3-VL-8B/GLM-OCR photo captioning, cross-check vs context sheets, SVG vectorisation | Yes | ✅ Complete |
+| 3 | Synthesis & Drafting | Qwen3.5-4B reasoning through full site dataset, produce structured draft | Yes | ✅ Complete |
+| 4 | Compliance Refinement | Gemma 4-E2B section-by-section restructuring to match jurisdiction template | Yes | ✅ Complete |
+| 5 | Assembly & Export | python-docx DOCX, WeasyPrint PDF/A-2b, rectpack photo plates, TEI-XML, ZIP | No | ✅ Complete |
 
 ## Quick Start
 
@@ -35,7 +35,11 @@ erd run --project stoneyfield_farm_2026 --input ./field_records --phase 0
 erd templates list
 ```
 
-Phases 0 and 5 are fully implemented (no GPU). GPU-dependent phases (1–4) will be available after model evaluation. See `docs/user-guide.md` for full documentation.
+Phases 0 and 5 are rule-based (no GPU). GPU-dependent phases (1–4) use Ollama for local
+inference and run on consumer hardware with 8 GB+ VRAM.
+```
+
+See `docs/user-guide.md` for full documentation and `docs/HOARD_Technical_Design_v2.md` for the complete technical design.
 
 ## CLI Reference
 
@@ -78,21 +82,25 @@ Adding a new jurisdiction means writing a YAML file — no pipeline code changes
 ## Status
 
 | Phase / Feature | Name | Status |
-|---|---|---|
-| 0 | Ingestion & Triage | ✅ Complete (rule-based, no GPU) |
-| 1 | Multi-Modal Digitisation | ⏳ Blocked — needs GPU (training ~24h) |
-| 2 | Spatial Reconstruction | ⏳ Blocked — needs GPU |
-| 3 | Synthesis & Drafting | ⏳ Blocked — needs GPU |
-| 4 | Compliance Refinement | ⏳ Blocked — needs GPU (structural checks ready) |
-| 5 | Assembly & Export | ✅ Complete (rule-based, no GPU) |
+|---|---|---|---|
+| 0 | Ingestion & Triage | ✅ Complete |
+| 1 | Multi-Modal Digitisation | ✅ Complete — GLM-OCR + Docling + Qwen3-VL fallback |
+| 2 | Spatial Reconstruction | ✅ Complete — Qwen3-VL / GLM-OCR captioning + cross-check + SVG |
+| 3 | Synthesis & Drafting | ✅ Complete — Qwen3.5-4B with thinking mode capture |
+| 4 | Compliance Refinement | ✅ Complete — Gemma 4-E2B section-by-section editing |
+| 5 | Assembly & Export | ✅ Complete — python-docx DOCX + WeasyPrint PDF/A-2b + rectpack plates |
 | — | Template engine | ✅ Complete — 14 jurisdiction templates |
 | — | Review dashboard | ✅ Complete — interactive Rich TUI |
 | — | Harris Matrix | ✅ Complete — pure-Python SVG generator |
 | — | ARK direct data input | ✅ Complete — bypass Phase 0/1 for digital-first sites |
+| — | Checkbox post-processing | ✅ Complete — GLM-OCR checkbox normaliser |
+| — | SVG geometry | ✅ Complete — field section drawings to SVG |
+| — | Photo plate layout | ✅ Complete — rectpack A4 bin-packing |
 | — | CONTRIBUTING.md | ✅ Complete — development setup guide |
 | — | User guide | ✅ Complete — see `docs/user-guide.md` |
 
-GPU-dependent phases will be available after model training completes.
+All phases are implemented and tested with mock data. The full pipeline runs on consumer
+hardware with 8 GB VRAM (RTX 3070 Laptop verified) using Ollama for local model inference.
 
 ## Review Dashboard
 

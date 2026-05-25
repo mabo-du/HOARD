@@ -1,0 +1,17 @@
+{
+  "source_file": "ctx_002.png",
+  "model": "chandra-ocr-2",
+  "context_number": "[102]",
+  "type": "cut",
+  "cut_by": [],
+  "cuts": ["[104]"],
+  "same_as": null,
+  "fills": ["[103]"],
+  "filled_by": [],
+  "description": "Linear cut aligned N-S. Steep concave sides, flattish base. 1.2m wide, 0.45m deep. Visible in plan as a dark linear feature.",
+  "interpretation": "Boundary ditch or drainage channel. Possibly Romano-British in origin based on alignment and morphology.",
+  "period": "Romano-British?",
+  "finds": [],
+  "samples": [],
+  "sketch_present": true
+}

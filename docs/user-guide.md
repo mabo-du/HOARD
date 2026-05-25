@@ -30,28 +30,11 @@ grey literature reports.
 
 - **Python 3.11+**
 - **pip** (Python package manager)
-- **pandoc** — for DOCX/PDF export:
+- **[Ollama](https://ollama.com)** — for local model inference (Phases 1-4)
+- **8 GB+ VRAM GPU** recommended — RTX 3070 Laptop verified
 
-  ```bash
-  # macOS
-  brew install pandoc
-
-  # Ubuntu/Debian
-  sudo apt-get install pandoc
-
-  # Windows (Chocolatey)
-  choco install pandoc
-  ```
-
-- **graphviz** _(optional, for Harris Matrix generation via the phase5 helper)_
-
-  HOARD includes a pure-Python Harris Matrix renderer that works without
-  graphviz. If you prefer the `dot`-backed renderer instead, install:
-
-  ```bash
-  sudo apt-get install graphviz   # Ubuntu/Debian
-  brew install graphviz            # macOS
-  ```
+HOARD uses Ollama for all GPU inference. No cloud API calls or pandoc required —
+DOCX is generated via python-docx and PDF/A-2b via WeasyPrint.
 
 ### Install HOARD
 

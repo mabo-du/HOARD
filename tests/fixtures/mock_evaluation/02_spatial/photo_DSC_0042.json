@@ -1,0 +1,16 @@
+{
+  "source_file": "DSC_0042.jpg",
+  "model": "qwen3-vl-4b-instruct",
+  "caption": "Oblique view of ditch [102] after excavation of fills. Section face shows cut [102] with primary fill [104] at base and secondary fill [103] above. Scale rod (1m) in frame. Weathered natural [105] visible at base of section.",
+  "grounding": [
+    {"label": "context_102", "bbox": [0.1, 0.1, 0.9, 0.5], "confidence": 0.91, "source": "florence-2"},
+    {"label": "context_103", "bbox": [0.1, 0.1, 0.9, 0.35], "confidence": 0.88, "source": "florence-2"},
+    {"label": "context_104", "bbox": [0.1, 0.35, 0.9, 0.5], "confidence": 0.85, "source": "florence-2"},
+    {"label": "context_105", "bbox": [0.0, 0.5, 1.0, 1.0], "confidence": 0.93, "source": "florence-2"},
+    {"label": "scale_rod", "bbox": [0.82, 0.0, 0.88, 1.0], "confidence": 0.97, "source": "florence-2"}
+  ],
+  "cross_check": {
+    "matching_contexts": ["[102]", "[103]", "[104]", "[105]"],
+    "inconsistencies": []
+  }
+}

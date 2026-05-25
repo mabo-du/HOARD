@@ -1,0 +1,17 @@
+{
+  "source_file": "ctx_005.png",
+  "model": "chandra-ocr-2",
+  "context_number": "[105]",
+  "type": "layer",
+  "cut_by": ["[102]"],
+  "cuts": [],
+  "same_as": null,
+  "fills": [],
+  "filled_by": [],
+  "description": "Mid-yellowish brown clayey silt. Frequent sub-angular and sub-rounded chalk fragments (10-40mm). Rare small flint gravel. Compact. Diffuse horizon to natural below.",
+  "interpretation": "Weathered natural / head deposit. Late Pleistocene periglacial slope deposit overlying solid geology. Cut by ditch [102].",
+  "period": "Late Pleistocene / Natural",
+  "finds": [],
+  "samples": [],
+  "sketch_present": false
+}

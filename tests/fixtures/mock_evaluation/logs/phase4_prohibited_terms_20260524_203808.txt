@@ -1,0 +1,5 @@
+Prohibited Terms Found:
+
+  Term: 'significant'
+  Section: executive_summary
+  Context: ...red 44 finds across eight entries, with significant pottery and animal bone material from t...

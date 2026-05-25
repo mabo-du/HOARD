@@ -1,0 +1,22 @@
+{
+  "source_file": "ctx_003.png",
+  "model": "chandra-ocr-2",
+  "context_number": "[103]",
+  "type": "deposit",
+  "cut_by": [],
+  "cuts": [],
+  "same_as": null,
+  "fills": ["[102]"],
+  "filled_by": [],
+  "description": "Mid-brown clayey silt with occasional small sub-rounded gravel. Occasional charcoal fragments. Firm compaction. Finds throughout.",
+  "interpretation": "Secondary fill of ditch [102]. Accumulated through natural silting and dumping.",
+  "period": "Roman",
+  "finds": [
+    {"type": "pottery", "qty": 12, "period": "Roman", "notes": "Greyware sherds (10), Samian ware base sherd (1), oxidised ware (1)"},
+    {"type": "animal_bone", "qty": 8, "period": "Roman", "notes": "Fragments — cattle-sized long bone fragments"}
+  ],
+  "samples": [
+    {"id": "SAMP001", "type": "bulk_soil", "notes": "For flotation — 40L from primary fill deposit"}
+  ],
+  "sketch_present": false
+}
