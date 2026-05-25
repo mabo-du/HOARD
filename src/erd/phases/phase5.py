@@ -8,23 +8,25 @@ Zero VRAM cost.
 exports: run_phase5(config) -> dict  — executes assembly and export
 used_by: erd.cli.run  → orchestrator
 rules:   Must never import torch or any GPU-bound library.
-         pandoc is called as a subprocess (must be installed system-wide).
-         All figure numbering, cross-references, and appendix indexing
-         are handled here.
-agent:   deepseek-v4-flash | 2026-05-09 | s_20260509_001 | Phase 5 implementation
+         DOCX is generated via python-docx (no pandoc needed).
+         PDF/A-2b is generated via WeasyPrint (no xelatex/wkhtmltopdf).
+         Photo plates use rectpack 2D bin-packing (CPU only).
+license: MIT
 """
 
 from __future__ import annotations
 
 import json
 import re
-import subprocess
 import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from erd.config import Config
+from erd.export.docx_writer import write_docx
+from erd.export.pdf_writer import write_pdf
+from erd.export.photo_plates import write_photo_plates
 
 # ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -282,7 +284,12 @@ def assemble_report(
         config.final_dir.mkdir(parents=True, exist_ok=True)
         (config.final_dir / "harris_matrix.svg").write_text(harris_svg)
 
-    # Step 6: Generate bibliography
+    # Step 6: Generate photo plates from assets
+    photo_plates_md = write_photo_plates(assets_dir)
+    if photo_plates_md:
+        appendices["photo_plates"] = photo_plates_md
+
+    # Step 7: Generate bibliography
     bibliography = _generate_bibliography(section_text)
 
     # Step 7: Compile final Markdown
@@ -320,6 +327,10 @@ def _compile_markdown(
         "sample_register": "Appendix 3: Sample Register",
     }
 
+    # Add photo plates appendix if present
+    if "photo_plates" in appendices:
+        appendix_labels["photo_plates"] = "Appendix 4: Photo Plates"
+
     for app_id, label in appendix_labels.items():
         content = appendices.get(app_id, "")
         if content and not content.startswith("*No"):
@@ -336,6 +347,7 @@ def _compile_markdown(
 def export_report(
     final_md: str,
     config: Config,
+    appendices: dict[str, str] | None = None,
     formats: list[str] | None = None,
 ) -> dict[str, Path | None]:
     """Export the final Markdown report to requested formats.
@@ -343,6 +355,7 @@ def export_report(
     Args:
         final_md: The complete Markdown report string.
         config: Pipeline configuration.
+        appendices: Appendix dict (for docx writer).
         formats: List of formats ('docx', 'pdf', 'tei-xml', 'zip').
                  Defaults to ['docx', 'pdf', 'zip'].
 
@@ -362,24 +375,52 @@ def export_report(
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     results: dict[str, Path | None] = {"markdown": md_path.resolve()}
 
-    # ── DOCX export ──
+    # Load jurisdiction template for metadata
+    template_yaml = _load_template_yaml(config)
+    project_name = _get_project_name(config, template_yaml)
+    jurisdiction_label = _get_jurisdiction_label(config, template_yaml)
+
+    # ── DOCX export (via python-docx) ──
     if "docx" in formats:
         docx_path = final_dir / f"report_{timestamp}.docx"
-        _pandoc_convert(md_path, docx_path, "docx")
-        results["docx"] = docx_path.resolve() if docx_path.exists() else None
+        try:
+            write_docx(
+                md_text=final_md,
+                output_path=docx_path,
+                project_name=project_name,
+                jurisdiction=jurisdiction_label,
+                appendices=appendices,
+                template_yaml=template_yaml,
+            )
+            results["docx"] = docx_path.resolve() if docx_path.exists() else None
+        except ImportError:
+            results["docx"] = None
+        except Exception:
+            results["docx"] = None
 
-    # ── PDF export ──
+    # ── PDF/A-2b export (via WeasyPrint) ──
     if "pdf" in formats:
         pdf_path = final_dir / f"report_{timestamp}.pdf"
-        _pandoc_convert(md_path, pdf_path, "pdf")
-        results["pdf"] = pdf_path.resolve() if pdf_path.exists() else None
+        try:
+            write_pdf(
+                md_text=final_md,
+                output_path=pdf_path,
+                project_name=project_name,
+                jurisdiction=jurisdiction_label,
+                pdfa_level="pdf/a-2b",
+            )
+            results["pdf"] = pdf_path.resolve() if pdf_path.exists() else None
+        except ImportError:
+            results["pdf"] = None
+        except Exception:
+            results["pdf"] = None
 
-    # ── Signed PDF export (optional — requires pyHanko + signing key) ──
+    # ── Signed PDF (optional — requires pyHanko + signing key) ──
     if "signed-pdf" in formats:
         from erd.export.signatures import sign_pdf, has_signing_key
-        pdf_path = results.get("pdf")
-        if pdf_path and has_signing_key():
-            signed_path = sign_pdf(Path(str(pdf_path)))
+        pdf_out = results.get("pdf")
+        if pdf_out and has_signing_key():
+            signed_path = sign_pdf(Path(str(pdf_out)))
             results["signed-pdf"] = signed_path.resolve() if signed_path else None
         else:
             results["signed-pdf"] = None
@@ -387,7 +428,7 @@ def export_report(
     # ── TEI-XML export ──
     if "tei-xml" in formats:
         tei_path = final_dir / f"report_{timestamp}.xml"
-        _pandoc_convert(md_path, tei_path, "tei")
+        _generate_tei_xml(final_md, tei_path, project_name)
         results["tei-xml"] = tei_path.resolve() if tei_path.exists() else None
 
     # ── Archive ZIP ──
@@ -399,42 +440,76 @@ def export_report(
     return results
 
 
-def _pandoc_convert(input_path: Path, output_path: Path, to_format: str) -> None:
-    """Convert a Markdown file to the target format using pandoc."""
+def _load_template_yaml(config: Config) -> dict[str, Any] | None:
+    """Load the jurisdiction template YAML if available."""
     try:
-        cmd = [
-            "pandoc",
-            str(input_path),
-            "-f", "markdown",
-            "-t", to_format,
-            "-o", str(output_path),
-            "--metadata", "pagetitle=Excavation Report",
-        ]
+        import yaml
+        template_path = config.project_dir / "config.yaml"
+        if template_path.exists():
+            data = yaml.safe_load(template_path.read_text())
+            if isinstance(data, dict):
+                return data
+    except Exception:
+        pass
+    return None
 
-        # Add PDF-specific options
-        if to_format == "pdf":
-            cmd.extend(["--pdf-engine", "xelatex"])
 
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=120,
-        )
-        if result.returncode != 0:
-            # Fallback: try wkhtmltopdf
-            if to_format == "pdf":
-                fallback_cmd = [
-                    "pandoc",
-                    str(input_path),
-                    "-f", "markdown",
-                    "-t", "html5",
-                    "-o", str(output_path),
-                ]
-                subprocess.run(fallback_cmd, capture_output=True, text=True, timeout=120)
+def _get_project_name(config: Config, template_yaml: dict[str, Any] | None) -> str:
+    """Extract project name from config or template."""
+    name = getattr(config, "project_name", "")
+    if not name and template_yaml:
+        name = template_yaml.get("project_name", "")
+    return name or "Excavation Report"
 
-    except (FileNotFoundError, subprocess.TimeoutExpired):
-        pass  # pandoc not available — output will be absent
+
+def _get_jurisdiction_label(config: Config, template_yaml: dict[str, Any] | None) -> str:
+    """Extract jurisdiction label from config or template."""
+    jur = getattr(config, "jurisdiction", "")
+    if not jur and template_yaml:
+        jur = template_yaml.get("jurisdiction", "")
+    return jur or ""
+
+
+def _generate_tei_xml(md_text: str, output_path: Path, project_name: str) -> None:
+    """Generate a lightweight TEI-XML wrapper from the Markdown body."""
+    import html as html_mod
+
+    date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    body_html = html_mod.escape(md_text[:50000])
+
+    tei = f"""<?xml version="1.0" encoding="UTF-8"?>
+<?xml-model href="http://www.tei-c.org/release/xml/tei/custom/schema/relaxng/tei_all.rng" type="application/xml" schematypens="http://relaxng.org/ns/structure/1.0"?>
+<TEI xmlns="http://www.tei-c.org/ns/1.0">
+  <teiHeader>
+    <fileDesc>
+      <titleStmt>
+        <title>{html_mod.escape(project_name)}</title>
+        <respStmt>
+          <resp>Generated by</resp>
+          <name>HOARD Archaeological Report Pipeline</name>
+        </respStmt>
+      </titleStmt>
+      <publicationStmt>
+        <publisher>HOARD</publisher>
+        <date>{date_str}</date>
+      </publicationStmt>
+      <sourceDesc>
+        <p>Born-digital archaeological report</p>
+      </sourceDesc>
+    </fileDesc>
+  </teiHeader>
+  <text>
+    <body>
+      <p>{body_html}</p>
+    </body>
+  </text>
+</TEI>"""
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(tei)
+
+
+# ── ZIP Archive ──────────────────────────────────────────────────────────────
 
 
 def _create_archive_zip(config: Config, zip_path: Path, md_path: Path) -> None:
@@ -499,7 +574,7 @@ def run_phase5(config: Config, formats: list[str] | None = None) -> dict[str, An
     final_md, appendices = assemble_report(config)
 
     # Export
-    export_paths = export_report(final_md, config, formats)
+    export_paths = export_report(final_md, config, appendices=appendices, formats=formats)
 
     result: dict[str, Any] = {
         "report_markdown": str(export_paths.get("markdown", "")),
