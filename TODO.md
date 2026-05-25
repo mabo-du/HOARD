@@ -10,11 +10,7 @@ Project task tracking with time estimates, dependencies, and TOON-enhanced parsi
 
 ## Backlog (still valid)
 
-- [ ] t007 Write Phase 1 unit tests (synthetic forms, known answers) @hoard #phase1 ~2h risk:med logged:2026-05-11
-- [ ] t011 Write Phase 2 unit tests @hoard #phase2 ~2h risk:med logged:2026-05-11
 - [ ] t015 Implement chunk-and-merge fallback for large sites (>500 contexts) @hoard #phase3 ~2h risk:med logged:2026-05-11
-- [ ] t017 Write Phase 3 unit tests @hoard #phase3 ~2h risk:med logged:2026-05-11
-- [ ] t020 Write Phase 4 unit tests @hoard #phase4 ~2h risk:med logged:2026-05-11
 - [ ] t024 Assemble integration test dataset (3 past excavations with known reports) @hoard #testing ~3h risk:low logged:2026-05-11
 - [ ] t030 Benchmark full pipeline runtime against 6 GB VRAM target @hoard #testing ~2h risk:low logged:2026-05-11
 
@@ -59,6 +55,10 @@ Project task tracking with time estimates, dependencies, and TOON-enhanced parsi
 - [x] t041 Checkbox post-processing for GLM-OCR output ~30m actual:30m logged:2026-05-25 completed:2026-05-25
 - [x] t042 SVG geometry from field section drawings ~2h actual:2h logged:2026-05-25 completed:2026-05-25
 - [x] t043 End-to-end pipeline test with mock data ~2h actual:2h logged:2026-05-25 completed:2026-05-25
+- [x] t007 Write Phase 1 unit tests (synthetic forms, known answers) ~2h actual:2h logged:2026-05-11 completed:2026-05-25
+- [x] t011 Write Phase 2 unit tests ~2h actual:2h logged:2026-05-11 completed:2026-05-25
+- [x] t017 Write Phase 3 unit tests ~2h actual:2h logged:2026-05-11 completed:2026-05-25
+- [x] t020 Write Phase 4 unit tests ~2h actual:2h logged:2026-05-11 completed:2026-05-25
 
 ## Dependencies
 
@@ -68,7 +68,7 @@ Project task tracking with time estimates, dependencies, and TOON-enhanced parsi
 - t017 blocked-by t013 (Done)
 - t019 blocked-by t018 (Done)
 - t020 blocked-by t019 (Done)
-- t024 blocked-by t007 (Backlog)
-- t024 blocked-by t011 (Backlog)
-- t024 blocked-by t017 (Backlog)
-- t024 blocked-by t020 (Backlog)
+- t024 blocked-by t007 (Done)
+- t024 blocked-by t011 (Done)
+- t024 blocked-by t017 (Done)
+- t024 blocked-by t020 (Done)
