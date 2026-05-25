@@ -21,11 +21,17 @@ from erd.phases.phase3 import (
     _check_review_triggers,
     _extract_sections,
     _find_json_files,
+    _group_contexts_by_period,
     _load_json_safe,
+    _merge_chunked_drafts,
+    _normalise_period,
     _render_context_summary,
     _render_finds_summary,
     _render_harris_relationships,
+    _render_period_context_table,
+    _render_period_finds,
     _render_sample_results,
+    _sort_periods,
 )
 
 
@@ -306,3 +312,199 @@ class TestRenderHarrisRelationships:
             result = _render_harris_relationships(Path(d))
             # Should not crash with empty dir
             assert isinstance(result, str)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# _group_contexts_by_period
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class TestGroupContextsByPeriod:
+    def test_groups_by_period(self):
+        with tempfile.TemporaryDirectory() as d:
+            tmp = Path(d)
+            for i, (ctx, period) in enumerate([
+                ("[101]", "medieval"),
+                ("[102]", "roman"),
+                ("[103]", "medieval"),
+                ("[104]", "undated"),
+            ]):
+                (tmp / f"ctx_{i}.json").write_text(json.dumps({
+                    "context_number": ctx,
+                    "type": "layer",
+                    "period": period,
+                }))
+            groups = _group_contexts_by_period(tmp)
+            assert len(groups) == 3  # medieval, roman, undated
+            assert len(groups["medieval"]) == 2
+            assert len(groups["roman"]) == 1
+            assert len(groups["undated"]) == 1
+
+    def test_normalises_period_names(self):
+        with tempfile.TemporaryDirectory() as d:
+            tmp = Path(d)
+            (tmp / "ctx_1.json").write_text(json.dumps({
+                "context_number": "[101]", "type": "layer", "period": "Roman period",
+            }))
+            (tmp / "ctx_2.json").write_text(json.dumps({
+                "context_number": "[102]", "type": "cut", "period": "ROMAN",
+            }))
+            groups = _group_contexts_by_period(tmp)
+            assert "roman" in groups
+            assert len(groups["roman"]) == 2
+
+    def test_missing_period_defaults_to_undated(self):
+        with tempfile.TemporaryDirectory() as d:
+            tmp = Path(d)
+            (tmp / "ctx_1.json").write_text(json.dumps({
+                "context_number": "[101]", "type": "layer",
+            }))
+            groups = _group_contexts_by_period(tmp)
+            assert "undated" in groups
+
+    def test_skips_non_context_files(self):
+        with tempfile.TemporaryDirectory() as d:
+            tmp = Path(d)
+            (tmp / "data.json").write_text('{"key": "no context_number"}')
+            groups = _group_contexts_by_period(tmp)
+            assert len(groups) == 0
+
+    def test_empty_dir(self):
+        with tempfile.TemporaryDirectory() as d:
+            groups = _group_contexts_by_period(Path(d))
+            assert groups == {}
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# _normalise_period
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class TestNormalisePeriod:
+    def test_exact_match(self):
+        assert _normalise_period("roman") == "roman"
+        assert _normalise_period("medieval") == "medieval"
+        assert _normalise_period("undated") == "undated"
+
+    def test_strips_suffixes(self):
+        assert _normalise_period("medieval period") == "medieval"
+        assert _normalise_period("Roman Phase") == "roman"
+
+    def test_aliases(self):
+        assert _normalise_period("postmed") == "post-medieval"
+        assert _normalise_period("Saxon") == "saxon"  # matches canonical "saxon"
+        assert _normalise_period("20th c") == "modern"
+
+    def test_unknown_returns_itself(self):
+        assert _normalise_period("early 18th century") == "early 18th century"
+
+    def test_medieval_not_merged_with_early_medieval(self):
+        """Critical: 'medieval' and 'early medieval' are distinct periods."""
+        assert _normalise_period("medieval") == "medieval"
+        assert _normalise_period("early medieval") == "early medieval"
+        assert _normalise_period("medieval") != "early medieval"
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# _render_period_context_table
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class TestRenderPeriodContextTable:
+    def test_renders_table(self):
+        contexts = [
+            {"context_number": "[101]", "type": "layer",
+             "description": "Dark silty clay", "interpretation": "Ploughsoil"},
+            {"context_number": "[102]", "type": "cut",
+             "description": "Linear cut", "interpretation": "Ditch"},
+        ]
+        result = _render_period_context_table(contexts)
+        assert "[101]" in result
+        assert "[102]" in result
+        assert "Ploughsoil" in result
+
+    def test_empty_contexts(self):
+        result = _render_period_context_table([])
+        assert "|" in result  # header row present
+        assert "[101]" not in result
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# _render_period_finds
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class TestRenderPeriodFinds:
+    def test_renders_finds_with_counts(self):
+        contexts = [
+            {"context_number": "[101]", "finds": [
+                {"type": "pottery", "qty": 5},
+                {"type": "bone", "qty": 3},
+            ]},
+            {"context_number": "[102]", "finds": [
+                {"type": "pottery", "qty": 2},
+            ]},
+        ]
+        result = _render_period_finds(contexts)
+        assert "pottery" in result
+        assert "bone" in result
+        assert "7" in result  # 5 + 2 pottery
+
+    def test_empty_finds(self):
+        assert _render_period_finds([]) == ""
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# _sort_periods
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class TestSortPeriods:
+    def test_chronological_order(self):
+        groups = {
+            "medieval": [],
+            "roman": [],
+            "modern": [],
+            "neolithic": [],
+        }
+        sorted_periods = _sort_periods(groups)
+        # Neolithic comes before Roman, which comes before Medieval, then Modern
+        assert sorted_periods[0] == "neolithic"
+        assert "roman" in sorted_periods[:3]
+        assert sorted_periods[-1] == "modern"
+
+    def test_unknown_goes_last(self):
+        groups = {"roman": [], "unknown_xyz": [], "undated": []}
+        sorted_periods = _sort_periods(groups)
+        assert "roman" in sorted_periods
+        assert sorted_periods[-1] == "undated" or sorted_periods[-2] == "undated"
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# _merge_chunked_drafts
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class TestMergeChunkedDrafts:
+    def test_merges_overview_and_periods(self):
+        overview = "##section:executive_summary\nSummary.\n\n##section:introduction\nIntro."
+        period_drafts = [
+            ("roman", "##section:results_roman\nRoman findings."),
+            ("medieval", "##section:results_medieval\nMedieval findings."),
+        ]
+        result = _merge_chunked_drafts(overview, period_drafts)
+        assert "executive_summary" in result
+        assert "results_roman" in result
+        assert "results_medieval" in result
+
+    def test_order_preserved(self):
+        overview = "##section:intro\nOverview"
+        period_drafts = [
+            ("neolithic", "##section:results_neolithic\nNeo"),
+            ("roman", "##section:results_roman\nRoman"),
+            ("medieval", "##section:results_medieval\nMed"),
+        ]
+        result = _merge_chunked_drafts(overview, period_drafts)
+        neo_pos = result.index("results_neolithic")
+        roman_pos = result.index("results_roman")
+        med_pos = result.index("results_medieval")
+        assert neo_pos < roman_pos < med_pos
+
+    def test_empty_periods(self):
+        overview = "##section:exec\nSummary"
+        result = _merge_chunked_drafts(overview, [])
+        assert "##section:exec" in result

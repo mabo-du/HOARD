@@ -438,11 +438,240 @@ def _check_review_triggers(
     return triggers
 
 
+# ── Chunk-and-Merge (Large Sites) ────────────────────────────────────────────
+
+# Threshold: if assembled context exceeds ~70K chars (~17K tokens),
+# switch to chunk-and-merge (leaves ~15K tokens for model output)
+_CHUNK_THRESHOLD_CHARS = 70000
+
+# Period ordering for chronological narrative (earliest first)
+_PERIOD_ORDER = [
+    "palaeolithic", "mesolithic", "neolithic", "bronze age",
+    "iron age", "roman", "anglo-saxon", "early medieval",
+    "saxon", "viking", "medieval", "post-medieval", "modern",
+    "undated", "unknown",
+]
+
+
+def _group_contexts_by_period(digitised_dir: Path) -> dict[str, list[dict[str, Any]]]:
+    """Group Phase 1 context data by period field.
+
+    Returns dict mapping normalised period name → list of context dicts.
+    """
+    groups: dict[str, list[dict[str, Any]]] = {}
+    for f in _find_json_files(digitised_dir):
+        data = _load_json_safe(f)
+        if not data or not data.get("context_number"):
+            continue
+        period = data.get("period", "undated").lower().strip()
+        period = _normalise_period(period)
+        if period not in groups:
+            groups[period] = []
+        groups[period].append(data)
+    return groups
+
+
+def _normalise_period(raw: str) -> str:
+    """Normalise a period string to its canonical form.
+
+    Uses exact match first, then common variant mapping.
+    Unrecognised periods are returned lowercase as-is (but sorted last).
+    """
+    raw_lower = raw.lower().strip()
+    # Remove common suffixes
+    for suffix in (" period", " phase", " era", "-"):
+        if raw_lower.endswith(suffix):
+            raw_lower = raw_lower[: -len(suffix)].strip()
+
+    # Exact matches in canonical list
+    for canonical in _PERIOD_ORDER:
+        if raw_lower == canonical:
+            return canonical
+
+    # Known aliases
+    aliases = {
+        "bronze age": "bronze age",
+        "prehistoric": "neolithic",  # fallback for generic prehistoric
+        "saxon": "anglo-saxon",
+        "postmed": "post-medieval",
+        "post med": "post-medieval",
+        "post-med": "post-medieval",
+        "17th c": "post-medieval",
+        "18th c": "post-medieval",
+        "19th c": "post-medieval",
+        "20th c": "modern",
+        "21st c": "modern",
+        "c19th": "modern",
+        "early med": "early medieval",
+        "later medieval": "medieval",
+        "late med": "medieval",
+        "later med": "medieval",
+    }
+    if raw_lower in aliases:
+        return aliases[raw_lower]
+
+    return raw_lower
+
+
+def _render_period_context_table(contexts: list[dict[str, Any]]) -> str:
+    """Render a condensed context table for a single period."""
+    lines = [
+        "| Context | Type | Description | Interpretation |",
+        "|---------|------|-------------|----------------|",
+    ]
+    for ctx in contexts:
+        num = ctx.get("context_number", "?")
+        typ = ctx.get("type", "")
+        desc = ctx.get("description", "")[:80]
+        interp = ctx.get("interpretation", "")[:60]
+        lines.append(f"| {num} | {typ} | {desc} | {interp} |")
+    return "\n".join(lines)
+
+
+def _render_period_finds(contexts: list[dict[str, Any]]) -> str:
+    """Render finds summary for contexts in one period."""
+    from collections import Counter
+    find_types: Counter[str] = Counter()
+    for ctx in contexts:
+        for f in ctx.get("finds", []):
+            ft = f.get("type", "unknown")
+            qty = f.get("qty", 1)
+            try:
+                find_types[ft] += int(qty)
+            except (ValueError, TypeError):
+                find_types[ft] += 1
+    if not find_types:
+        return ""
+    items = ", ".join(f"{v}× {k}" for k, v in find_types.most_common())
+    return f"Finds: {items}"
+
+
+def _render_period_relations(contexts: list[dict[str, Any]]) -> str:
+    """Render stratigraphic relationships for contexts in one period."""
+    relationships: list[str] = []
+    context_nums = {str(c.get("context_number", "")).strip("[]") for c in contexts}
+    for ctx in contexts:
+        num = ctx.get("context_number", str(ctx.get("context_number")))
+        for rel_field, rel_verb in [("cut_by", "cut by"), ("cuts", "cuts")]:
+            for other in ctx.get(rel_field, []):
+                other_clean = str(other).strip("[]")
+                if other_clean in context_nums:
+                    relationships.append(f"  {num} {rel_verb} {other}")
+    if not relationships:
+        return ""
+    return "Relationships:\n" + "\n".join(sorted(set(relationships)))
+
+
+def _assemble_period_context(
+    period: str,
+    contexts: list[dict[str, Any]],
+    metadata: str,
+) -> str:
+    """Assemble the full context document for a single period."""
+    parts = [
+        metadata,
+        "",
+        f"## Period: {period.title()} ({len(contexts)} contexts)",
+        "",
+        _render_period_context_table(contexts),
+        "",
+    ]
+    finds = _render_period_finds(contexts)
+    if finds:
+        parts.append(finds)
+        parts.append("")
+    relations = _render_period_relations(contexts)
+    if relations:
+        parts.append(relations)
+        parts.append("")
+    return "\n".join(parts)
+
+
+def _build_period_drafting_prompt(period: str, context_text: str) -> str:
+    """Build the drafting prompt for a single period's stratigraphic narrative."""
+    return (
+        f"Using the data below, write the stratigraphic narrative for the "
+        f"**{period.title()}** period.\n\n"
+        f"### Context Data\n\n{context_text}\n\n"
+        f"### Instructions\n\n"
+        f"Describe all contexts from this period in chronological sequence. "
+        f"Cover every context and its relationships. Use standard archaeological "
+        f"terminology. Begin with `##section:results_{period}`.\n"
+    )
+
+
+def _build_condensed_overview_prompt(
+    period_summaries: list[tuple[str, int, dict[str, int]]],
+    site_metadata: str,
+) -> str:
+    """Build a condensed prompt for the overview sections.
+
+    Uses period summaries (counts + find types) rather than full
+    context data to stay within token budget.
+    """
+    summary_lines = []
+    for period, ctx_count, find_counts in period_summaries:
+        line = f"- **{period.title()}**: {ctx_count} contexts"
+        if find_counts:
+            items = ", ".join(f"{v}× {k}" for k, v in find_counts.items())
+            line += f". Finds: {items}"
+        summary_lines.append(line)
+
+    return (
+        "Using the condensed site summary below, write the following report "
+        f"sections as a structured Markdown draft.\n\n"
+        f"### Site Metadata\n\n{site_metadata}\n\n"
+        f"### Period Summary\n\n"
+        + "\n".join(summary_lines)
+        + "\n\n"
+        "### Required Sections\n\n"
+        "Write each section starting with `##section:{{id}}`:\n\n"
+        "1. **executive_summary** — 1-2 paragraph summary of the excavation\n"
+        "2. **introduction** — Site location, NGR, geology, project background\n"
+        "3. **methodology** — Excavation strategy, recording system, policies\n"
+        "4. **discussion** — Interpretation in local and regional context\n"
+        "5. **archive_statement** — Archive deposition and accession details\n"
+    )
+
+
+def _merge_chunked_drafts(
+    overview_draft: str,
+    period_drafts: list[tuple[str, str]],
+) -> str:
+    """Merge drafted sections from all chunks into a single document.
+
+    Args:
+        overview_draft: Draft of non-period sections (exec summary, etc.).
+        period_drafts: List of (period_name, draft_text) tuples.
+
+    Returns:
+        Merged Markdown document with sections in logical order.
+    """
+    merged_parts: list[str] = [overview_draft, ""]
+
+    for period_name, draft_text in period_drafts:
+        merged_parts.append(draft_text.strip())
+        merged_parts.append("")
+
+    return "\n".join(merged_parts)
+
+
+def _sort_periods(groups: dict[str, list[dict[str, Any]]]) -> list[str]:
+    """Sort period names by chronological order."""
+    order_map = {p: i for i, p in enumerate(_PERIOD_ORDER)}
+    return sorted(groups.keys(), key=lambda p: order_map.get(p, 9999))
+
+
 # ── Main Entry Point ─────────────────────────────────────────────────────────
 
 
 def run_phase3(config: Config, model: str = DEFAULT_MODEL) -> dict[str, Any]:
     """Execute Phase 3: Synthesis & Narrative Drafting.
+
+    For small sites (<70K chars context, ~17K tokens), drafts the full report
+    in one pass. For large sites, uses chunk-and-merge: groups contexts by
+    period, drafts each period's narrative separately, then merges with a
+    condensed overview of executive sections.
 
     Args:
         config: Pipeline configuration.
@@ -453,25 +682,42 @@ def run_phase3(config: Config, model: str = DEFAULT_MODEL) -> dict[str, Any]:
             - 'status': 'complete' | 'failed'
             - 'model': model used
             - 'sections': dict of section_id → content
-            - 'reasoning': model's reasoning chain (or None)
+            - 'reasoning': list of reasoning chains
             - 'triggers': list of review trigger dicts
             - 'draft_path': path to written draft file
             - 'reasoning_path': path to written reasoning log
             - 'total_tokens': int
             - 'duration_ms': int
+            - 'chunked': bool (True if chunk-and-merge was used)
     """
     start_time = time.time()
 
-    # Create draft and logs directories
     config.draft_dir.mkdir(parents=True, exist_ok=True)
     config.logs_dir.mkdir(parents=True, exist_ok=True)
-
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
 
-    # Step 1: Assemble context
-    context_text = assemble_context(config)
+    # Step 1: Assemble context and check size
+    full_context = assemble_context(config)
 
-    # Step 2: Build drafting prompt
+    # Step 2: Collect context numbers for review triggers
+    context_numbers: set[str] = set()
+    for f in _find_json_files(config.digitised_dir):
+        data = _load_json_safe(f)
+        ctx = data.get("context_number")
+        if ctx:
+            context_numbers.add(ctx.strip("[]"))
+
+    # ── Chunk-and-merge path (large sites) ──────────────────────────────────
+    if len(full_context) > _CHUNK_THRESHOLD_CHARS:
+        logger.info(
+            f"Context size {len(full_context)} chars exceeds threshold "
+            f"{_CHUNK_THRESHOLD_CHARS} — using chunk-and-merge"
+        )
+        return _run_phase3_chunked(
+            config, model, timestamp, context_numbers, start_time
+        )
+
+    # ── Single-pass path (standard) ─────────────────────────────────────────
     drafting_template = (
         "Using the site data provided below, write the excavation report sections.\n\n"
         "### Site Data\n\n"
@@ -495,19 +741,8 @@ def run_phase3(config: Config, model: str = DEFAULT_MODEL) -> dict[str, Any]:
         "7. **discussion** — Interpretation of the site in its local and regional context\n"
         "8. **archive_statement** — Recommended archive deposition and accession details\n"
     )
-    drafting_prompt = drafting_template.format(context=context_text)
+    drafting_prompt = drafting_template.format(context=full_context)
 
-    # Step 3: Collect context numbers for review trigger checking
-    context_numbers: set[str] = set()
-    for f in _find_json_files(config.digitised_dir):
-        data = _load_json_safe(f)
-        ctx = data.get("context_number")
-        if ctx:
-            # Strip brackets
-            clean = ctx.strip("[]")
-            context_numbers.add(clean)
-
-    # Step 4: Call Ollama
     logger.info(f"Calling Ollama model: {model}")
     result = _ollama_generate(
         model=model,
@@ -518,43 +753,167 @@ def run_phase3(config: Config, model: str = DEFAULT_MODEL) -> dict[str, Any]:
 
     duration_ms = int((time.time() - start_time) * 1000)
 
-    if result.get("response"):
-        draft_text = result["response"]
-    else:
+    if not result.get("response"):
         return {
             "status": "failed",
             "model": model,
             "error": "Model returned empty response",
+            "chunked": False,
         }
 
-    # Step 5: Extract sections
+    draft_text = result["response"]
     sections = _extract_sections(draft_text)
-
-    # Step 6: Check review triggers
     triggers = _check_review_triggers(
         draft_text, {"context_numbers": context_numbers}
     )
 
-    # Step 7: Write draft to disk
     draft_path = config.draft_dir / f"draft_{timestamp}.md"
     draft_path.write_text(draft_text)
     logger.info(f"Draft written to {draft_path}")
 
-    # Step 8: Write reasoning chain if present
     reasoning_path = None
-    if result.get("reasoning"):
+    reasoning_chain = result.get("reasoning")
+    if reasoning_chain:
         reasoning_path = config.logs_dir / f"phase3_reasoning_{timestamp}.txt"
-        reasoning_path.write_text(result["reasoning"])
+        reasoning_path.write_text(reasoning_chain)
         logger.info(f"Reasoning chain written to {reasoning_path}")
 
     return {
         "status": "complete",
         "model": model,
         "sections": sections,
-        "reasoning": result.get("reasoning"),
+        "reasoning": reasoning_chain,
         "triggers": triggers,
         "draft_path": str(draft_path),
         "reasoning_path": str(reasoning_path) if reasoning_path else None,
         "total_tokens": result.get("eval_count", 0),
         "duration_ms": duration_ms,
+        "chunked": False,
+    }
+
+
+def _run_phase3_chunked(
+    config: Config,
+    model: str,
+    timestamp: str,
+    context_numbers: set[str],
+    start_time: float,
+) -> dict[str, Any]:
+    """Run Phase 3 using chunk-and-merge for large sites.
+
+    1. Group contexts by period
+    2. Draft stratigraphic narrative for each period
+    3. Draft overview sections from condensed period summaries
+    4. Merge all sections together
+    """
+    from collections import Counter
+
+    # Group contexts by period
+    period_groups = _group_contexts_by_period(config.digitised_dir)
+    sorted_periods = _sort_periods(period_groups)
+
+    logger.info(
+        f"Chunk-and-merge: {len(sorted_periods)} periods, "
+        f"{sum(len(period_groups[p]) for p in sorted_periods)} contexts"
+    )
+
+    # Build period summaries for the condensed overview
+    period_summaries: list[tuple[str, int, dict[str, int]]] = []
+    for period in sorted_periods:
+        contexts = period_groups[period]
+        find_counts: Counter[str] = Counter()
+        for ctx in contexts:
+            for f in ctx.get("finds", []):
+                ft = f.get("type", "unknown")
+                try:
+                    find_counts[ft] += int(f.get("qty", 1))
+                except (ValueError, TypeError):
+                    find_counts[ft] += 1
+        period_summaries.append((
+            period, len(contexts), dict(find_counts),
+        ))
+
+    # Draft overview sections from condensed summaries
+    site_metadata = _render_site_metadata(config)
+    overview_prompt = _build_condensed_overview_prompt(period_summaries, site_metadata)
+
+    logger.info("Drafting condensed overview sections...")
+    overview_result = _ollama_generate(
+        model=model,
+        system=SYSTEM_PROMPT,
+        prompt=overview_prompt,
+        temperature=DEFAULT_TEMPERATURE,
+    )
+    overview_draft = overview_result.get("response", "")
+
+    all_reasoning: list[str] = []
+    if overview_result.get("reasoning"):
+        all_reasoning.append(f"--- Overview ---\n{overview_result['reasoning']}")
+
+    # Draft each period's narrative
+    period_drafts: list[tuple[str, str]] = []
+    for period in sorted_periods:
+        contexts = period_groups[period]
+        period_ctx = _assemble_period_context(
+            period, contexts, site_metadata,
+        )
+        period_prompt = _build_period_drafting_prompt(period, period_ctx)
+
+        logger.info(f"Drafting period: {period} ({len(contexts)} contexts)")
+        period_result = _ollama_generate(
+            model=model,
+            system=SYSTEM_PROMPT,
+            prompt=period_prompt,
+            temperature=DEFAULT_TEMPERATURE,
+        )
+        period_text = period_result.get("response", "")
+        period_drafts.append((period, period_text))
+
+        if period_result.get("reasoning"):
+            all_reasoning.append(
+                f"--- Period: {period} ---\n{period_result['reasoning']}"
+            )
+
+    # Merge all drafts
+    merged_text = _merge_chunked_drafts(overview_draft, period_drafts)
+
+    duration_ms = int((time.time() - start_time) * 1000)
+
+    # Extract sections and check review triggers
+    sections = _extract_sections(merged_text)
+    triggers = _check_review_triggers(
+        merged_text, {"context_numbers": context_numbers}
+    )
+
+    # Write to disk
+    draft_path = config.draft_dir / f"draft_{timestamp}.md"
+    draft_path.write_text(merged_text)
+    logger.info(f"Merged draft written to {draft_path}")
+
+    reasoning_path = None
+    if all_reasoning:
+        reasoning_path = config.logs_dir / f"phase3_reasoning_{timestamp}.txt"
+        reasoning_path.write_text("\n\n".join(all_reasoning))
+        logger.info(f"Reasoning chains written to {reasoning_path}")
+
+    total_tokens = (
+        overview_result.get("eval_count", 0)
+        + sum(p[1].get("eval_count", 0) for p in [
+            (None, overview_result)
+        ])
+    )
+
+    return {
+        "status": "complete",
+        "model": model,
+        "sections": sections,
+        "reasoning": all_reasoning if all_reasoning else None,
+        "triggers": triggers,
+        "draft_path": str(draft_path),
+        "reasoning_path": str(reasoning_path) if reasoning_path else None,
+        "total_tokens": total_tokens,
+        "duration_ms": duration_ms,
+        "chunked": True,
+        "chunk_periods": sorted_periods,
+        "chunk_count": len(sorted_periods),
     }

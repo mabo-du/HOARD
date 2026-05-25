@@ -131,6 +131,10 @@ def run_pipeline(config: Config) -> None:
             console.print(f"  Tokens: {result.get('total_tokens', 0)}")
             console.print(f"  Duration: {result.get('duration_ms', 0) / 1000:.1f}s")
 
+            if result.get("chunked"):
+                periods = result.get("chunk_periods", [])
+                console.print(f"  [bold]Chunked:[/] {result.get('chunk_count')} periods ({', '.join(periods[:5])}{'...' if len(periods) > 5 else ''})")
+
             if result.get("reasoning"):
                 console.print(f"  Reasoning chain: {result.get('reasoning_path')}")
 
