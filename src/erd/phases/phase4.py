@@ -57,7 +57,20 @@ def _load_template(template_name: str) -> dict[str, Any] | None:
     return None
 
 
-# ── Draft Loading ────────────────────────────────────────────────────────────
+def _interpolate_defaults(
+    defaults: dict[str, str],
+    config: Any,
+) -> dict[str, str]:
+    """Replace {project_id}, {project_name}, {current_date} in default values."""
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    result = {}
+    for key, value in defaults.items():
+        value = value.replace("{project_id}", getattr(config, "project_id", "unknown"))
+        value = value.replace("{project_name}", getattr(config, "project_name", "Excavation"))
+        value = value.replace("{current_date}", now)
+        result[key] = value.strip()
+    return result
 
 
 def _find_latest_draft(draft_dir: Path) -> str | None:
@@ -138,13 +151,16 @@ def _build_compliance_prompt(
     section_content: str,
     required_fields: list[str] | None,
     prohibited_terms: list[str] | None,
+    field_defaults: dict[str, str] | None = None,
 ) -> str:
     """Build a prompt for the compliance model for a single section."""
     prompt_parts = [
         f"You are an editor ensuring an archaeological report section conforms to the {section_label} template.\n",
         "Your task: restructure the provided section draft to match the required fields below.\n",
         "Do NOT add factual claims not present in the draft.\n",
-        "If a required field is missing content, insert [MISSING: field_name].\n",
+        "If a required field is missing content, check if a template default exists below.\n"
+        "  - If a default IS listed: use the default value instead of [MISSING].\n"
+        "  - If no default is listed: insert [MISSING: field_name].\n",
         "Replace prohibited terms with the preferred alternatives.\n",
         "Output ONLY the corrected section — no commentary, no meta-text.\n",
     ]
@@ -153,6 +169,11 @@ def _build_compliance_prompt(
         prompt_parts.append(f"\nRequired fields for this section:\n")
         for field in required_fields:
             prompt_parts.append(f"  - {field}")
+
+    if field_defaults:
+        prompt_parts.append(f"\nDefault values for missing fields:\n")
+        for field, default in field_defaults.items():
+            prompt_parts.append(f"  {field}: {default}")
 
     if prohibited_terms:
         prompt_parts.append(f"\nProhibited terms (replace if found):\n")
@@ -235,6 +256,7 @@ def run_phase4(
         }
 
     prohibited_terms = template.get("prohibited_terms", [])
+    field_defaults = _interpolate_defaults(template.get("field_defaults", {}), config)
 
     # Step 2: Find and parse Phase 3 draft
     draft_text = _find_latest_draft(config.draft_dir)
@@ -285,6 +307,7 @@ def run_phase4(
             section_content=content,
             required_fields=required_fields,
             prohibited_terms=prohibited_terms,
+            field_defaults=field_defaults,
         )
 
         logger.info(f"Compliance pass for section '{sec_id}'")

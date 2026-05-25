@@ -147,3 +147,31 @@ export:
     margin: "2.5cm"
   digital_archive:
     formats: ["PDF/A", "TEI-XML"]
+
+# ── Default Field Values ───────────────────────────────────────────────────
+# Used when a required field has no content in the draft.
+# Values with {project_id} or {project_name} are template variables.
+
+field_defaults:
+  planning_authority: "Local Planning Authority"
+  planning_application_ref: "REF: {project_id}"
+  her_reference: "HER: {project_id}"
+  waterlogged_wood_protocol: |
+    No waterlogged wood was encountered during the evaluation. If waterlogged
+    wood is encountered during any further phases of work, a specialist
+    conservator will be consulted and recovery will follow Historic England's
+    "Waterlogged Wood: Guidelines on the Recovery, Handling and Storage of
+    Waterlogged Archaeological Wood" (2025 revision).
+  digital_archive_format: "PDF/A-2b, DOCX, TEI-XML"
+  repository: "ADS (Archaeology Data Service) / OASIS"
+  accession_categories: "Context sheets, trench plans, photographs, finds register, environmental sample records"
+  deposition_date: "{current_date}"
+  research_aims: |
+    The principal aim of the evaluation was to determine the presence or
+    absence of archaeological remains within the development area and to
+    assess their character, date, condition, and significance.
+  specific_objectives: |
+    - To establish the stratigraphic sequence across the site
+    - To recover dating evidence from excavated contexts
+    - To assess the potential for environmental remains
+    - To inform a mitigation strategy for any identified heritage assets

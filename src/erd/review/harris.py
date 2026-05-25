@@ -103,8 +103,11 @@ def build_matrix_from_contexts(contexts: list[dict[str, Any]]) -> list[Stratigra
 
         node = nodes[num]
 
+        def _list(v):
+            return v if isinstance(v, list) else []
+
         # 'cuts' means this context cuts into others → this is later (higher)
-        for target in ctx.get("cuts", []):
+        for target in _list(ctx.get("cuts")):
             target_str = str(target).strip("[]")
             node.children.append(target_str)
             if target_str not in nodes:
@@ -112,7 +115,7 @@ def build_matrix_from_contexts(contexts: list[dict[str, Any]]) -> list[Stratigra
             nodes[target_str].parents.append(num)
 
         # 'cut_by' means another context cuts this → that other is later
-        for source in ctx.get("cut_by", []):
+        for source in _list(ctx.get("cut_by")):
             source_str = str(source).strip("[]")
             node.parents.append(source_str)
             if source_str not in nodes:
@@ -120,7 +123,7 @@ def build_matrix_from_contexts(contexts: list[dict[str, Any]]) -> list[Stratigra
             nodes[source_str].children.append(num)
 
         # 'fills' means this context fills another → this is later
-        for target in ctx.get("fills", []):
+        for target in _list(ctx.get("fills")):
             target_str = str(target).strip("[]")
             node.children.append(target_str)
             if target_str not in nodes:
@@ -128,7 +131,7 @@ def build_matrix_from_contexts(contexts: list[dict[str, Any]]) -> list[Stratigra
             nodes[target_str].parents.append(num)
 
         # 'filled_by' means another context fills this → that is later
-        for source in ctx.get("filled_by", []):
+        for source in _list(ctx.get("filled_by")):
             source_str = str(source).strip("[]")
             node.parents.append(source_str)
             if source_str not in nodes:
@@ -136,7 +139,7 @@ def build_matrix_from_contexts(contexts: list[dict[str, Any]]) -> list[Stratigra
             nodes[source_str].children.append(num)
 
         # 'same_as' groups equivalent contexts — render grouped later
-        for eq in ctx.get("same_as", []):
+        for eq in _list(ctx.get("same_as")):
             eq_str = str(eq).strip("[]")
             if eq_str not in nodes:
                 nodes[eq_str] = StratigraphicNode(eq_str)

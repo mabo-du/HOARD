@@ -625,12 +625,14 @@ def _build_condensed_overview_prompt(
         + "\n".join(summary_lines)
         + "\n\n"
         "### Required Sections\n\n"
-        "Write each section starting with `##section:{{id}}`:\n\n"
+        "Write EACH section starting with `##section:{{id}}`. Generate ALL sections listed:\n\n"
         "1. **executive_summary** — 1-2 paragraph summary of the excavation\n"
         "2. **introduction** — Site location, NGR, geology, project background\n"
-        "3. **methodology** — Excavation strategy, recording system, policies\n"
-        "4. **discussion** — Interpretation in local and regional context\n"
-        "5. **archive_statement** — Archive deposition and accession details\n"
+        "3. **aims_and_objectives** — Research aims and specific objectives\n"
+        "4. **methodology** — Excavation strategy, recording system, policies\n"
+        "5. **discussion** — Interpretation in local and regional context\n"
+        "6. **archive_statement** — Archive deposition and accession details\n"
+        "7. **bibliography** — List references cited. If none, note 'No references cited.'\n"
     )
 
 
@@ -731,15 +733,17 @@ def run_phase3(config: Config, model: str = DEFAULT_MODEL) -> dict[str, Any]:
         "The archaeological evaluation...\n\n"
         "##section:introduction\n"
         "The site is located...\n\n"
-        "Required sections:\n"
+        "Required sections (generate EVERY listed section — do not skip any):\n"
         "1. **executive_summary** — 2-3 paragraph summary of the excavation, methods, and key findings\n"
         "2. **introduction** — Site location, NGR, geology, topography, and project background\n"
-        "3. **methodology** — Excavation strategy, recording system, finds and sampling policy\n"
-        "4. **stratigraphic_narrative** — Phased description of ALL contexts in chronological order, grouped by period. Cover every context from the data.\n"
-        "5. **finds_summary** — Overview of recovered finds by category and period\n"
-        "6. **environmental_summary** — Summary of environmental samples and results\n"
-        "7. **discussion** — Interpretation of the site in its local and regional context\n"
-        "8. **archive_statement** — Recommended archive deposition and accession details\n"
+        "3. **aims_and_objectives** — Research aims and specific objectives of the evaluation\n"
+        "4. **methodology** — Excavation strategy, recording system, finds and sampling policy\n"
+        "5. **results_by_period** — Phased description of ALL contexts in chronological order, grouped by period where possible. Cover every context from the data.\n"
+        "6. **finds_summary** — Overview of recovered finds by category and period\n"
+        "7. **environmental_summary** — Summary of environmental samples and results\n"
+        "8. **discussion** — Interpretation of the site in its local and regional context\n"
+        "9. **archive_statement** — Recommended archive deposition and accession details\n"
+        "10. **bibliography** — List all references cited in the text. If none were cited, note 'No references cited.'\n"
     )
     drafting_prompt = drafting_template.format(context=full_context)
 
