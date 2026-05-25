@@ -171,7 +171,7 @@ def _normalise_image(input_path: Path, output_dir: Path, dpi_target: int = 300) 
             import fitz  # PyMuPDF
 
             doc = fitz.open(str(input_path))
-            page_count = min(len(doc), 50)  # Cap at 50 pages for safety
+            page_count = len(doc)  # Stream all pages — PyMuPDF is memory-efficient
             paths: list[Path] = []
             for i in range(page_count):
                 page = doc[i]
