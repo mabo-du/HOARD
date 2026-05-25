@@ -372,42 +372,60 @@ mandatory_sections:
 
 ### Phase 1: Multi-Modal Digitisation *(GPU-dependent)*
 
-- Distortion correction via PaddleOCR-VL-1.5 (conditional — only when flagged)
-- Holistic layout + handwriting + checkbox extraction via Chandra OCR 2
-- Complex table parsing via MinerU2.5-Pro-2604-1.2B
-- All models load sequentially; peak VRAM ~2.8 GB
+- Context sheet OCR via **GLM-OCR** (Ollama, 2.2 GB model)
+- Degraded document fallback via **Qwen3-VL-8B** (Ollama)
+- Finds catalogue parsing via **Docling** (CPU-based)
+- Pydantic structured output enforcement
+- Post-extraction checkbox normalisation (cross/filled → boolean)
+- Outputs validated against shared JSON Schema contract (`schemas/context-sheet-v1.json`)
+- Use `--strict` flag to halt on schema validation failures
+- Peak VRAM: ~2.8 GB (GLM-OCR)
 
 ### Phase 2: Spatial Reconstruction *(GPU-dependent)*
 
-- Initial visual grounding (bounding box extraction) via Florence-2-large
-- Semantic captioning + cross-check vs. context sheets via Qwen3-VL-4B-Instruct
-- Digital geometry from field drawings via 2D SVG vectorization (primary) or Build123d (optional 3D)
+- Site photo and plan analysis via **Qwen3-VL-8B** (Ollama)
+- Auto-captioning with fills/colour/ROMFA inclusion descriptions
+- **Manifest-based filtering**: only `site_photo` and `plan` files processed
+  (context sheets excluded from photo plates automatically)
+- SVG section drawing generation from all images (for Phase 3 reference)
+- Photo plates generated only if Phase 2 output exists
+- Peak VRAM: ~3.5 GB (Qwen3-VL-8B)
 
 ### Phase 3: Synthesis & Drafting *(GPU-dependent)*
 
 - Context assembly from all Phase 1-2 outputs
-- Structured Markdown draft via Qwen3-4B-Thinking-2507 (262K context)
-- Human review triggers for uncertainty and conflicts
-- Chunk-and-merge for large sites (500+ contexts)
+- Structured Markdown draft via **huihui_ai/qwen3.5-abliterated:4B** (Ollama)
+- 10-section report structure: summary, intro, geology, methodology, results by area,
+  results by period, finds, discussion, bibliography, appendix reference
+- Human review triggers for uncertainty, conflicts, and missing sections
+- Chunk-and-merge for large sites (500+ contexts) with per-period context filtering
+- Peak VRAM: ~2.8 GB
 
 ### Phase 4: Compliance Refinement *(GPU-dependent)*
 
-- Section-by-section compliance checking
-- Mandatory section verification
-- Prohibited term replacement
-- Heading style correction
-- Figure caption formatting
+- Section-by-section compliance checking against jurisdiction template
+- Template field defaults: 11 defaults with `{project_id}`, `{project_name}`,
+  `{current_date}` template variables (eliminates most `[MISSING:]` placeholders)
+- Prohibited term replacement (scientifically inaccurate language)
+- Mandatory section verification and placeholder insertion
+- Heading style correction and figure caption formatting
+- Via **tripolskypetr/gemma4-uncensored-aggressive** (Ollama)
+- Peak VRAM: ~2.1 GB
 
 ### Phase 5: Assembly & Export
 
 *Rule-based, zero VRAM.*
 
-- Figure resolution and embedding
+- Figure resolution and embedding, photo plates from Phase 2 captions
 - Appendix generation (context register, finds concordance, sample register)
-- Harris Matrix SVG generation
-- Bibliography extraction
-- DOCX/PDF export via pandoc
-- Archive ZIP packaging
+- Harris Matrix SVG generation from inferred stratigraphic relationships
+- Bibliography extraction from Phase 3 draft content
+- **DOCX export** via `python-docx` (45 KB, archaeological template styling)
+- **PDF/A-2b export** via WeasyPrint (80 MB with embedded context sheet images)
+- **TEI-XML lightweight** semantic export for archival/LOD pipelines
+- **PAdES digital signature** via pyHanko (optional — requires signing key)
+- **ZIP archive** packaging all outputs
+- Markdown draft always preserved as source
 
 ---
 
@@ -440,6 +458,74 @@ The matrix is colour-coded by period:
 
 Arrows point from later contexts to earlier contexts (standard Harris
 convention). No graphviz is required — the renderer is pure Python.
+
+---
+
+## StratiGraph Integration
+
+StratiGraph is a companion web app that visualises stratigraphic matrices from
+HOARD Phase 1 output. It runs entirely in the browser — no backend required.
+
+### Data Contract
+
+HOARD and StratiGraph share a JSON Schema contract at `schemas/context-sheet-v1.json`.
+Both projects validate against the same schema independently.
+
+- **HOARD** writes `schema_version: "1.0.0"` into every Phase 1 output and
+  runs advisory schema validation (use `--strict` to halt on violations)
+- **StratiGraph** validates HOARD JSON files on import and warns about
+  any schema mismatches
+
+### Importing HOARD Output into StratiGraph
+
+```bash
+# 1. Start StratiGraph
+cd ~/Projects/StratiGraph/app
+npm install
+npm run dev
+# Opens at http://localhost:5173
+
+# 2. Click Import → HOARD JSON Import tab
+
+# 3. Select all ctx_sheet_*.json files from your HOARD project's
+#    01_digitised/ directory. Hold Shift for multi-select.
+
+# 4. Review the summary: contexts, relationships, any warnings
+
+# 5. Click "Generate Harris Matrix"
+```
+
+### What Happens on Import
+
+Each HOARD JSON is parsed into an HMDP (Harris Matrix Data Package) context:
+
+| HOARD Field | HMDP Mapping | StratiGraph Usage |
+|-------------|-------------|-------------------|
+| `context_number` | `id` | Node label in graph |
+| `type` | `type` (`Positive`/`Negative`/`Unknown`) | Node colour/shape |
+| `description` + `interpretation` | `description` | Sidebar display |
+| `period` | `period` | Period colour coding |
+| `cuts` | `Above` relationships | Directed edges |
+| `cut_by` | `Above` (reversed) | Directed edges |
+| `fills` | `Above` relationships | Directed edges |
+| `filled_by` | `Above` (reversed) | Directed edges |
+| `same_as` | `Equals` relationships | Horizontal alignment |
+
+**Stub contexts** are automatically created for any context IDs referenced
+in relationship fields but whose sheet wasn't imported (e.g., a cut referenced
+from a fill's `fills` field). These appear as `Unknown` type contexts for
+manual identification.
+
+### StratiGraph Features
+
+- **DAG validation**: automatic cycle detection and transitive reduction
+- **Harris Matrix rendering**: auto-layout via Cytoscape.js + Dagre
+- **Publication mode**: free-drag nodes into pixel-perfect alignment
+- **Phase grouping**: colour-coded period boxes
+- **Finds heatmap**: density-based colouring by finds quantity
+- **HOARD export**: generate EEDP (linear chronological paths) for AI prompts
+- **Libby/OxCal export**: Bayesian chronological modelling integration
+- **Export**: PNG, SVG, PDF
 
 ---
 
@@ -487,32 +573,52 @@ sudo apt-get install nvidia-cuda-toolkit
 python -c "import torch; print(torch.cuda.is_available())"
 ```
 
-### Model downloads
+### Ollama models
 
-Models are downloaded automatically on first use via HuggingFace.
-For offline environments, pre-download:
+All GPU inference runs via Ollama. Pull models before first use:
 
 ```bash
-pip install huggingface-hub
-huggingface-cli download datalab-to/chandra-ocr-2
-huggingface-cli download opendatalab/MinerU2.5-Pro-2604-1.2B
-huggingface-cli download Qwen/Qwen3-VL-4B-Instruct-GGUF
-huggingface-cli download Qwen/Qwen3-4B-Thinking-2507-GGUF
-huggingface-cli download unsloth/gemma-4-E2B-it-GGUF
-huggingface-cli download microsoft/Florence-2-large
+# Phase 1: Context sheet OCR
+ollama pull glm-ocr:latest
+
+# Phase 1 fallback: Degraded document processing
+ollama pull qwen3-vl:8b
+
+# Phase 2: Photo/plan captioning
+ollama pull qwen3-vl:8b  # (same model, shared with Phase 1 fallback)
+
+# Phase 3: Report drafting
+ollama pull huihui_ai/qwen3.5-abliterated:4B
+
+# Phase 4: Compliance refinement
+ollama pull tripolskypetr/gemma4-uncensored-aggressive:latest
+
+# Verify all models
+ollama list
 ```
+
+Models load and evict sequentially — HOARD calls `/api/generate` with
+`keep_alive: 0` to unload from VRAM when each phase finishes.
 
 ### VRAM budget
 
 | Phase | Peak VRAM | Model(s) |
 |-------|-----------|---------|
-| 1 | ~2.8 GB | Chandra OCR 2 (holistic layout + handwriting + forms) |
-| 2 | ~2.9 GB | Qwen3-VL-4B-Instruct (visual grounding + captioning) |
-| 3 | ~5.1 GB | Qwen3-4B-Thinking-2507 + 85k KV cache |
-| 4 | ~2.1 GB | Gemma 4-E2B (compliance refinement) |
+| 1 | ~2.8 GB | GLM-OCR (Ollama, 2.2 GB) |
+| 2 | ~3.5 GB | Qwen3-VL-8B (Ollama) |
+| 3 | ~2.8 GB | huihui_ai/qwen3.5-abliterated:4B (Ollama) |
+| 4 | ~2.1 GB | tripolskypetr/gemma4-uncensored-aggressive (Ollama) |
 
 Models load and clear sequentially — peak VRAM never exceeds the single
-largest model at any moment.
+largest model at any moment. Benchmark with `--benchmark` flag:
+```bash
+PYTHONPATH=src python3 -m erd run \
+    --project pinn_brook_park_2026 \
+    --workspace /tmp/pinnbrook \
+    --benchmark
+```
+This logs per-phase VRAM peak/average, GPU temperature, power draw,
+and Ollama model memory to `logs/benchmarks/`.
 
 ---
 
@@ -547,10 +653,31 @@ erd run --project <id> --phase 0
 erd review --project <id>
 ```
 
-### "pandoc: command not found"
+### "WeasyPrint fails on PDF export"
 
-Install pandoc for DOCX/PDF export (see [Installation](#installation)).
-Markdown output is always produced regardless.
+WeasyPrint requires system-level rendering libraries:
+
+```bash
+# Ubuntu/Debian
+sudo apt-get install libpango-1.0-0 libpangocairo-1.0-0 libgdk-pixbuf2.0-0
+
+# Fedora
+sudo dnf install pango cairo gdk-pixbuf2
+```
+
+### "Schema validation warnings during Phase 1"
+
+This is normal for OCR-extracted data — some fields may have minor format
+differences. Review the warnings in the log output. Use `--strict` if you
+want Phase 1 to halt on validation failure for manual review.
+
+### "HOARD JSON import in StratiGraph shows no relationships"
+
+GLM-OCR extracts form text but cannot reliably parse the Harris Matrix
+diagram drawn on the context sheet. Relationships (cuts, fills) are only
+present if the OCR captured them from the form text. This is a known
+limitation — relationships must be added manually in StratiGraph or
+entered via CSV import.
 
 ### "No module named 'torch'"
 
@@ -608,6 +735,7 @@ erd run [options]
 |--------|---------|-------------|
 | `--project` / `-p` | — | Project ID (required) |
 | `--input` / `-i` | `./input` | Input directory |
+| `--strict` / `-s` | `False` | Halt Phase 1 if schema contract validation fails |
 | `--phase` | — | Run single phase only |
 | `--from-phase` | — | Run from phase N onward |
 | `--workspace` / `-w` | `./erd_workspace` | Workspace root |
