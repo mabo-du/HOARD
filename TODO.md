@@ -1,3 +1,0 @@
-- [x] t044 Florence-2 compatibility doc ~15m actual:15m logged:2026-05-25 completed:2026-05-25
-- [x] t045 Benchmark module tests ~30m actual:30m logged:2026-05-25 completed:2026-05-25
-- [x] t046 pyHanko PAdES digital signatures ~2h actual:2h logged:2026-05-25 completed:2026-05-25

@@ -44,6 +44,25 @@ models/
 .ctx/cache/
 .ctx/stats/
 
+# Agent / IDE / dev-only config files
+.agents/
+.agentsignore
+.beads/
+.claude/
+.ctx/
+.windsurf/
+.aidevops.json
+AGENTS.md
+CLAUDE.md
+
+# Personal tracking (not app code)
+TODO.md
+todo/
+
+# Placeholder scaffolding (not app code)
+migrations/
+seeds/
+
 # Design and planning documents (kept locally, not in repo root)
 /HOARD_Technical_Design_v2.md
 /HOARD_Technical_Design_v2.txt
