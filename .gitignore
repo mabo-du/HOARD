@@ -51,6 +51,16 @@ models/
 /HOARD_Planning_v1.md
 /Inital_Idea
 
+# Design and research documents (keep in working tree, not in repo)
+# Keep only operational docs; research/strategy docs stay local
+/docs/*
+!/docs/user-guide.md
+!/docs/pinn-brook-e2e-test.md
+!/docs/gallows-hill-e2e-test.md
+!/docs/florence2-compatibility.md
+!/docs/nuextract3-evaluation.md
+!/docs/integration-datasets.md
+
 # Temp / backup files
 *~
 *.md~
