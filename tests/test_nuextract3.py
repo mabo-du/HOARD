@@ -11,8 +11,8 @@ import json
 
 import pytest
 
-from erd.extractors import NuExtract3Extractor, context_sheet_template, template_to_json
-from erd.extractors.nuextract3 import NUEXTRACT_SYSTEM
+from hoard.extractors import NuExtract3Extractor, context_sheet_template, template_to_json
+from hoard.extractors.nuextract3 import NUEXTRACT_SYSTEM
 
 
 class TestNuExtract3Template:

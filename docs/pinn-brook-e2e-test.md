@@ -24,21 +24,21 @@ mkdir -p /tmp/pinnbrook_test/input
 cp ~/Downloads/pinnbrook/RAMM_10_2020_PAD15_context_sheets_47000_to_47034.pdf /tmp/pinnbrook_test/input/
 
 # Initialize project
-PYTHONPATH=src python3 -m erd init "Pinn Brook Park 2026" \
+PYTHONPATH=src python3 -m hoard init "Pinn Brook Park 2026" \
     --jurisdiction historic_england_cl3 \
     --output /tmp/pinnbrook_test
 
 # Run full pipeline
-PYTHONPATH=src python3 -m erd run \
+PYTHONPATH=src python3 -m hoard run \
     --project pinn_brook_park_2026 \
     --input /tmp/pinnbrook_test/input \
     --workspace /tmp/pinnbrook_test
 
 # With VRAM benchmarking
 PYTHONPATH=src python3 << 'PYEOF'
-from erd.config import Config
-from erd.workspace import Workspace
-from erd.cli.run import run_pipeline
+from hoard.config import Config
+from hoard.workspace import Workspace
+from hoard.cli.run import run_pipeline
 from pathlib import Path
 
 cfg = Config(
@@ -59,7 +59,7 @@ After pipeline completes, compare HOARD output against the published report:
 1. Check `04_refined/` — does the compliant draft match the published report structure?
 2. Check `05_final/report.docx` — does it look publication-ready?
 3. Check `logs/benchmarks/` — what were the peak VRAM numbers?
-4. Review flagged items with `erd review --project pinn_brook_park_2026`
+4. Review flagged items with `hoard review --project pinn_brook_park_2026`
 
 ## Expected challenges
 

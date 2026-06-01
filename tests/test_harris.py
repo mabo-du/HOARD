@@ -16,7 +16,7 @@ from pathlib import Path
 
 import pytest
 
-from erd.review.harris import (
+from hoard.review.harris import (
     StratigraphicNode,
     build_matrix_from_contexts,
     generate_from_json_list,
@@ -235,7 +235,7 @@ class TestGenerateHarrisMatrix:
 
 class TestLevelAssignment:
     def test_levels_assigned_correctly(self, simple_stratigraphy: list[dict]) -> None:
-        from erd.review.harris import _assign_levels
+        from hoard.review.harris import _assign_levels
 
         nodes = build_matrix_from_contexts(simple_stratigraphy)
         _assign_levels(nodes)
@@ -249,7 +249,7 @@ class TestLevelAssignment:
         assert node_map["3"].level == 2
 
     def test_levels_complex(self, complex_stratigraphy: list[dict]) -> None:
-        from erd.review.harris import _assign_levels
+        from hoard.review.harris import _assign_levels
 
         nodes = build_matrix_from_contexts(complex_stratigraphy)
         _assign_levels(nodes)

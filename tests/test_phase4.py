@@ -17,7 +17,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from erd.phases.phase4 import (
+from hoard.phases.phase4 import (
     _build_compliance_prompt,
     _check_prohibited_terms,
     _count_words,

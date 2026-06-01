@@ -40,7 +40,7 @@ DOCX is generated via python-docx and PDF/A-2b via WeasyPrint.
 
 ```bash
 # From PyPI (once published)
-pip install hoard-erd
+pip install hoard
 
 # From source
 git clone https://github.com/mabo-du/HOARD.git
@@ -51,8 +51,8 @@ pip install -e ".[dev]"
 ### Verify Installation
 
 ```bash
-erd --version
-erd --help
+hoard --version
+hoard --help
 ```
 
 You should see the CLI banner and available commands.
@@ -63,7 +63,7 @@ You should see the CLI banner and available commands.
 
 ```bash
 # 1. Initialise a project
-erd init "Stoneyfield Farm 2026" --jurisdiction historic_england_cl3
+hoard init "Stoneyfield Farm 2026" --jurisdiction historic_england_cl3
 
 # 2. Place your field records in ./input/:
 #    - Context sheets (JPG, PNG, PDF)
@@ -72,17 +72,17 @@ erd init "Stoneyfield Farm 2026" --jurisdiction historic_england_cl3
 #    - Plans and section drawings (PDF, SVG, PNG)
 
 # 3a. Option A — Run Phase 0 for paper field records (no GPU needed)
-erd run --project stoneyfield_2026 --phase 0
+hoard run --project stoneyfield_2026 --phase 0
 
 # 3b. Option B — Import from ARK if your site uses digital recording
 #     (bypasses Phase 0 and Phase 1 OCR entirely)
-# erd import-ark --project stoneyfield_2026 --input ./ark_exports/
+# hoard import-ark --project stoneyfield_2026 --input ./ark_exports/
 
 # 4. Review any flagged items
-erd review --project stoneyfield_2026
+hoard review --project stoneyfield_2026
 
 # 5. Run the full pipeline (GPU-dependent phases will be skipped)
-erd run --project stoneyfield_2026
+hoard run --project stoneyfield_2026
 ```
 
 ---
@@ -90,7 +90,7 @@ erd run --project stoneyfield_2026
 ## Project Initialisation
 
 ```bash
-erd init "Project Name" --jurisdiction <code> --output ./erd_workspace
+hoard init "Project Name" --jurisdiction <code> --output ./erd_workspace
 ```
 
 | Option | Description | Default |
@@ -107,16 +107,16 @@ This creates: `./erd_workspace/{project_id}/config.yaml`
 
 ```bash
 # Full pipeline
-erd run --project <id>
+hoard run --project <id>
 
 # Single phase
-erd run --project <id> --phase <N>
+hoard run --project <id> --phase <N>
 
 # From phase N onward
-erd run --project <id> --from-phase <N>
+hoard run --project <id> --from-phase <N>
 
 # Specify input and workspace directories
-erd run --project <id> --input ./field_records/ --workspace ./my_workspace
+hoard run --project <id> --input ./field_records/ --workspace ./my_workspace
 ```
 
 The pipeline is **resumable** — completed phases are automatically skipped.
@@ -143,7 +143,7 @@ bypassing Phase 0 (file ingestion) and Phase 1 (OCR) entirely.
 
 ### When to Use ARK Import
 
-Use `erd import-ark` when your excavation already records data digitally using
+Use `hoard import-ark` when your excavation already records data digitally using
 ARK or compatible systems. This applies to most commercial archaeology units
 and many research excavations. The import saves approximately 2–4 hours of
 pipeline time by skipping file triage and OCR for those records.
@@ -162,7 +162,7 @@ ARK import handles **5 data types:**
 
 ```bash
 cd my_project
-erd import-ark --project stoneyfield_2026 --input ./ark_export/
+hoard import-ark --project stoneyfield_2026 --input ./ark_export/
 ```
 
 Where `./ark_export/` contains the CSV or JSON files exported from ARK.
@@ -215,13 +215,13 @@ You can then run subsequent phases directly:
 
 ```bash
 # Skip straight to Phase 5 assembly (no GPU needed)
-erd run --project stoneyfield_2026 --phase 5
+hoard run --project stoneyfield_2026 --phase 5
 ```
 
 When GPU models become available, you can run Phase 2+ normally:
 
 ```bash
-erd run --project stoneyfield_2026 --from-phase 2
+hoard run --project stoneyfield_2026 --from-phase 2
 ```
 
 ### Output Example
@@ -247,7 +247,7 @@ erd run --project stoneyfield_2026 --from-phase 2
 After running Phase 0 (and later phases), you can review flagged items:
 
 ```bash
-erd review --project stoneyfield_2026
+hoard review --project stoneyfield_2026
 ```
 
 The review dashboard presents each flagged item one at a time:
@@ -283,7 +283,7 @@ you can re-run from the corrected phase.
 ## Exporting Reports
 
 ```bash
-erd export --project stoneyfield_2026 --format docx,pdf,zip
+hoard export --project stoneyfield_2026 --format docx,pdf,zip
 ```
 
 | Option | Description | Default |
@@ -307,13 +307,13 @@ reporting standards:
 
 ```bash
 # List all templates
-erd templates list
+hoard templates list
 
 # Show template details (coming soon)
-erd templates show historic_england_cl3
+hoard templates show historic_england_cl3
 
 # Validate a template file
-erd templates validate ./my_template.yaml
+hoard templates validate ./my_template.yaml
 ```
 
 ### Available Jurisdictions
@@ -440,7 +440,7 @@ relationships. This is produced automatically during Phase 5, or can be
 generated standalone:
 
 ```python
-from erd.review import generate_harris_matrix
+from hoard.review import generate_harris_matrix
 
 result = generate_harris_matrix(
     context_files=list(Path("01_digitised").glob("*.json")),
@@ -616,7 +616,7 @@ Models load and evict sequentially — HOARD calls `/api/generate` with
 Models load and clear sequentially — peak VRAM never exceeds the single
 largest model at any moment. Benchmark with `--benchmark` flag:
 ```bash
-PYTHONPATH=src python3 -m erd run \
+PYTHONPATH=src python3 -m hoard run \
     --project pinn_brook_park_2026 \
     --workspace /tmp/pinnbrook \
     --benchmark
@@ -645,16 +645,16 @@ Pipeline requires at least:
 Phases 1–4 require GPU. Run Phase 0 and Phase 5 only for now:
 
 ```bash
-erd run --project <id> --phase 0
-erd run --project <id> --phase 5
+hoard run --project <id> --phase 0
+hoard run --project <id> --phase 5
 ```
 
 ### "Review dashboard shows no flags"
 
 Run a phase first to generate data:
 ```bash
-erd run --project <id> --phase 0
-erd review --project <id>
+hoard run --project <id> --phase 0
+hoard review --project <id>
 ```
 
 ### "WeasyPrint fails on PDF export"
@@ -693,7 +693,7 @@ the review dashboard work without it.
 ## CLI Reference
 
 ```bash
-erd <command> [options]
+hoard <command> [options]
 ```
 
 ### Global Options
@@ -714,10 +714,10 @@ erd <command> [options]
 | `export` | Export final report |
 | `templates` | List, show, or validate templates |
 
-### `erd init`
+### `hoard init`
 
 ```bash
-erd init <name> [options]
+hoard init <name> [options]
 ```
 
 | Argument | Description |
@@ -729,10 +729,10 @@ erd init <name> [options]
 | `--jurisdiction` / `-j` | `historic_england_cl3` |
 | `--output` / `-o` | `./erd_workspace` |
 
-### `erd run`
+### `hoard run`
 
 ```bash
-erd run [options]
+hoard run [options]
 ```
 
 | Option | Default | Description |
@@ -745,10 +745,10 @@ erd run [options]
 | `--from-phase` | — | Run from phase N onward |
 | `--workspace` / `-w` | `./erd_workspace` | Workspace root |
 
-### `erd import-ark`
+### `hoard import-ark`
 
 ```bash
-erd import-ark [options]
+hoard import-ark [options]
 ```
 
 | Option | Default | Description |
@@ -761,10 +761,10 @@ Accepts CSV or JSON exports. Recognises context sheets, finds catalogues,
 sample registers, photo logs, and drawing registers. Marks Phase 0 and Phase 1
 as bypassed in pipeline state.
 
-### `erd review`
+### `hoard review`
 
 ```bash
-erd review [options]
+hoard review [options]
 ```
 
 | Option | Default | Description |
@@ -773,10 +773,10 @@ erd review [options]
 | `--workspace` / `-w` | `./erd_workspace` | Workspace root |
 | `--reset` / `-r` | `False` | Reset all review decisions |
 
-### `erd export`
+### `hoard export`
 
 ```bash
-erd export [options]
+hoard export [options]
 ```
 
 | Option | Default | Description |
@@ -785,10 +785,10 @@ erd export [options]
 | `--format` / `-f` | `docx,pdf` | Output formats |
 | `--workspace` / `-w` | `./erd_workspace` | Workspace root |
 
-### `erd templates`
+### `hoard templates`
 
 ```bash
-erd templates <action> [options]
+hoard templates <action> [options]
 ```
 
 | Action | Description |

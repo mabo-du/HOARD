@@ -18,8 +18,8 @@ from pathlib import Path
 
 import pytest
 
-from erd.config import Config
-from erd.phases.phase0 import (
+from hoard.config import Config
+from hoard.phases.phase0 import (
     FileEntry,
     QualityFlags,
     _assess_quality,

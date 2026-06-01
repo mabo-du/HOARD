@@ -26,13 +26,13 @@ Targets 6 GB VRAM, runs entirely on consumer hardware. Zero API calls, zero data
 pip install -e .
 
 # Initialise a project
-erd init "Stoneyfield Farm 2026" --jurisdiction historic_england_cl3
+hoard init "Stoneyfield Farm 2026" --jurisdiction historic_england_cl3
 
 # Run Phase 0 (Ingestion & Triage — no GPU needed)
-erd run --project stoneyfield_farm_2026 --input ./field_records --phase 0
+hoard run --project stoneyfield_farm_2026 --input ./field_records --phase 0
 
 # List available jurisdiction templates
-erd templates list
+hoard templates list
 ```
 
 Phases 0 and 5 are rule-based (no GPU). GPU-dependent phases (1–4) use Ollama for local
@@ -45,17 +45,17 @@ See `docs/user-guide.md` for full documentation and `docs/HOARD_Technical_Design
 
 | Command | Description |
 |---|---|
-| `erd init <name>` | Initialise a new project |
-| `erd run --project <id>` | Run the pipeline (full or partial) |
-| `erd run --project <id> --phase <N>` | Run a single phase |
-| `erd run --project <id> --from-phase <N>` | Run from phase N onward |
-| `erd run --project <id> --strict` | Halt Phase 1 on schema validation failure |
-| `erd import-ark --project <id> --input <dir>` | Import structured data from ARK system exports (bypasses Phase 0/1) |
-| `erd review --project <id>` | Interactive review dashboard for flagged items |
-| `erd export --project <id> --format docx,pdf` | Export final report |
-| `erd templates list` | List available jurisdiction templates |
-| `erd templates show --name <code>` | Show template details |
-| `erd templates validate --file <path>` | Validate a template file |
+| `hoard init <name>` | Initialise a new project |
+| `hoard run --project <id>` | Run the pipeline (full or partial) |
+| `hoard run --project <id> --phase <N>` | Run a single phase |
+| `hoard run --project <id> --from-phase <N>` | Run from phase N onward |
+| `hoard run --project <id> --strict` | Halt Phase 1 on schema validation failure |
+| `hoard import-ark --project <id> --input <dir>` | Import structured data from ARK system exports (bypasses Phase 0/1) |
+| `hoard review --project <id>` | Interactive review dashboard for flagged items |
+| `hoard export --project <id> --format docx,pdf` | Export final report |
+| `hoard templates list` | List available jurisdiction templates |
+| `hoard templates show --name <code>` | Show template details |
+| `hoard templates validate --file <path>` | Validate a template file |
 
 ## Jurisdiction Templates
 
@@ -114,7 +114,7 @@ local model inference.
 After running a pipeline phase, review flagged items interactively:
 
 ```bash
-erd review --project stoneyfield_2026
+hoard review --project stoneyfield_2026
 ```
 
 The terminal TUI presents each flagged item one at a time:
@@ -132,7 +132,7 @@ HOARD generates a stratigraphic Harris Matrix SVG from context sheet relationshi
 
 ```bash
 # Generated as part of Phase 5 assembly
-erd run --project stoneyfield_2026 --phase 5
+hoard run --project stoneyfield_2026 --phase 5
 # Output: erd_workspace/stoneyfield_2026/05_final/harris_matrix.svg
 ```
 
@@ -145,7 +145,7 @@ recording system, HOARD can import structured data directly — bypassing Phase 
 file triage and Phase 1 OCR entirely:
 
 ```bash
-erd import-ark --project stoneyfield_2026 --input ./ark_exports/
+hoard import-ark --project stoneyfield_2026 --input ./ark_exports/
 ```
 
 Accepts CSV or JSON exports for **5 ARK table types:**

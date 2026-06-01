@@ -17,7 +17,7 @@ from pathlib import Path
 
 import pytest
 
-from erd.phases.phase3 import (
+from hoard.phases.phase3 import (
     _check_review_triggers,
     _extract_sections,
     _find_json_files,

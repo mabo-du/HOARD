@@ -17,8 +17,8 @@ from pathlib import Path
 
 import pytest
 
-from erd.config import Config
-from erd.review import (
+from hoard.config import Config
+from hoard.review import (
     FlagSource,
     ReviewDecision,
     ReviewItem,
@@ -26,7 +26,7 @@ from erd.review import (
     load_flags_from_manifest,
     load_flags_from_workspace,
 )
-from erd.workspace import Workspace
+from hoard.workspace import Workspace
 
 
 # ── Fixtures ─────────────────────────────────────────────────────────────────
@@ -296,7 +296,7 @@ class TestReviewSession:
 def test_cli_help_invocation() -> None:
     """Verify the review command appears in CLI help."""
     from typer.testing import CliRunner
-    from erd.cli.main import app
+    from hoard.cli.main import app
 
     runner = CliRunner()
     result = runner.invoke(app, ["review", "--help"])

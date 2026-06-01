@@ -17,7 +17,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from erd.templates.engine import ComplianceFinding, TemplateEngine
+from hoard.templates.engine import ComplianceFinding, TemplateEngine
 
 # ── Fixtures ─────────────────────────────────────────────────────────────────
 

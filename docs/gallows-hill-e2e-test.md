@@ -25,18 +25,18 @@ mkdir -p /tmp/gallows_hill_test/input
 cp ~/Downloads/gallows_hill/*.pdf /tmp/gallows_hill_test/input/
 
 # Initialize project
-PYTHONPATH=src python3 -m erd init "Gallows Hill 2026" \
+PYTHONPATH=src python3 -m hoard init "Gallows Hill 2026" \
     --jurisdiction historic_england_cl3 \
     --output /tmp/gallows_hill_test
 
 # Run full pipeline
-PYTHONPATH=src python3 -m erd run \
+PYTHONPATH=src python3 -m hoard run \
     --project gallows_hill_2026 \
     --input /tmp/gallows_hill_test/input \
     --workspace /tmp/gallows_hill_test
 
 # Run with strict schema validation
-PYTHONPATH=src python3 -m erd run \
+PYTHONPATH=src python3 -m hoard run \
     --project gallows_hill_2026 \
     --input /tmp/gallows_hill_test/input \
     --workspace /tmp/gallows_hill_test \

@@ -66,12 +66,12 @@ available). Each dataset URL above links to the collection page with downloadabl
 files.
 
 Place downloaded context sheet PDFs in the project `input/` directory and
-configure the project via `erd init`. The Phase 0 ingestion classifier will
+configure the project via `hoard init`. The Phase 0 ingestion classifier will
 auto-detect context sheets, finds catalogues, and site photos.
 
 **For a full integration test:**
 1. Download Pinn Brook Park (35 contexts) as the baseline
-2. Run the full pipeline: `erd run --project pinn_brook`
+2. Run the full pipeline: `hoard run --project pinn_brook`
 3. Compare HOARD output against the published report
 4. Submit Gallows Hill for multi-phase validation
 5. Use A14 Alconbury for scaling tests (10 → 50 → 100 contexts)

@@ -13,8 +13,8 @@ from __future__ import annotations
 
 import pytest
 
-from erd.benchmark import VRAMProfiler, get_ollama_model_stats, get_ollama_timing
-from erd.benchmark.vram_profiler import VramSnapshot, VramReport, _HAS_PYNVML
+from hoard.benchmark import VRAMProfiler, get_ollama_model_stats, get_ollama_timing
+from hoard.benchmark.vram_profiler import VramSnapshot, VramReport, _HAS_PYNVML
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

@@ -17,7 +17,7 @@ from pathlib import Path
 
 import pytest
 
-from erd.phases.phase1 import (
+from hoard.phases.phase1 import (
     ContextSheet,
     Find,
     _has_any_checkbox,

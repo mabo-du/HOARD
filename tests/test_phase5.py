@@ -18,8 +18,8 @@ from pathlib import Path
 
 import pytest
 
-from erd.config import Config
-from erd.phases.phase5 import (
+from hoard.config import Config
+from hoard.phases.phase5 import (
     _compile_markdown,
     _generate_bibliography,
     _generate_context_register,

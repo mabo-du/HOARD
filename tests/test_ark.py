@@ -12,16 +12,16 @@ from pathlib import Path
 
 import pytest
 
-from erd.ark import ArkImportResult, guess_mapping_from_header, import_ark_export, transform_row
-from erd.ark.loader import _discover_ark_files, _parse_csv, _parse_json
-from erd.ark.mapping import (
+from hoard.ark import ArkImportResult, guess_mapping_from_header, import_ark_export, transform_row
+from hoard.ark.loader import _discover_ark_files, _parse_csv, _parse_json
+from hoard.ark.mapping import (
     ARK_CONTEXT_FIELDS,
     ARK_FINDS_FIELDS,
     ARK_PHOTOS_FIELDS,
     _build_lookup,
 )
-from erd.ark.semantic_mapper import ArkSemanticMapper, map_headers_semantic
-from erd.config import Config
+from hoard.ark.semantic_mapper import ArkSemanticMapper, map_headers_semantic
+from hoard.config import Config
 
 
 # ── Fixtures ────────────────────────────────────────────────────────────────

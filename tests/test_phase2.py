@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-from erd.phases.phase2 import (
+from hoard.phases.phase2 import (
     CrossCheckResult,
     PhotoAnalysis,
     _ctx_numbers,
