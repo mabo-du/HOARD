@@ -91,6 +91,10 @@ def run(
         False, "--strict", "-s",
         help="Halt Phase 1 if schema contract validation fails",
     ),
+    extractor: str = typer.Option(
+        "glm-ocr", "--extractor", "-e",
+        help="Phase 1 extraction model: glm-ocr (default) or nuextract3",
+    ),
     phase: int | None = typer.Option(None, "--phase", help="Run a single phase only"),
     from_phase: int | None = typer.Option(
         None, "--from-phase", help="Run from this phase onward",
@@ -112,6 +116,7 @@ def run(
         workspace_root=workspace_root,
         input_dir=input_path,
         strict=strict,
+        extractor=extractor,
     )
 
     if phase is not None:

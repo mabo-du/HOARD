@@ -26,6 +26,7 @@ class Config:
     workspace_root: Path
     input_dir: Path
     strict: bool = False
+    extractor: str = "glm-ocr"  # "glm-ocr" | "nuextract3"
 
     @property
     def project_dir(self) -> Path:

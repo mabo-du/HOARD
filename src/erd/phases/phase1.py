@@ -3,8 +3,11 @@
 Converts scanned archaeological documents into structured JSON using
 specialised Vision-Language Models. Three routing paths:
 
-  Route 1 — Context sheets (handwritten forms): GLM-OCR via Ollama
-             with Pydantic structured output enforcement.
+  Route 1a — Context sheets (handwritten forms): GLM-OCR via Ollama
+              with Pydantic structured output enforcement (default).
+  Route 1b — Context sheets (handwritten forms): NuExtract3 Q4_K_M via
+              Ollama (opt-in with --extractor nuextract3). Better schema
+              adherence (+56%) but requires model pull first.
   Route 2 — Finds catalogues (typed tables): Docling with Granite-Docling-258M.
   Route 3 — Existing typed notes: Docling CPU parser (zero VRAM).
 
@@ -39,6 +42,14 @@ from pydantic import BaseModel, Field
 from erd.config import Config
 
 logger = logging.getLogger(__name__)
+
+# Lazy import for NuExtract3 (keeps CLI startup fast — only imported when needed)
+_NUEXTRACT3_AVAILABLE = False
+try:
+    from erd.extractors.nuextract3 import NuExtract3Extractor
+    _NUEXTRACT3_AVAILABLE = True
+except ImportError:
+    pass
 
 # ── Constants ──────────────────────────────────────────────────────────────
 
@@ -331,12 +342,45 @@ def _process_context_sheet(
     image_path: Path,
     quality_flags: dict | None = None,
     context_hint: str | None = None,
+    extractor: str = "glm-ocr",
 ) -> dict[str, Any] | None:
-    """Process a single context sheet image and return structured data."""
-    # Pre-process
+    """Process a single context sheet image and return structured data.
+
+    Args:
+        image_path: Path to the context sheet image.
+        quality_flags: Quality assessment from Phase 0 (for pre-processing).
+        context_hint: Optional context number hint from filename.
+        extractor: Which extraction model to use.
+            "glm-ocr" (default) — GLM-OCR with Qwen3-VL fallback.
+            "nuextract3" — NuExtract3 structured extraction specialist.
+    """
+    # Pre-process (same for all extractors)
     image_bytes = _preprocess_image(image_path, quality_flags)
 
-    # Route to GLM-OCR
+    # ── NuExtract3 Path ──
+    if extractor == "nuextract3":
+        if not _NUEXTRACT3_AVAILABLE:
+            logger.error("NuExtract3 support not installed (missing erd.extractors)")
+            return None
+        try:
+            nuextract = NuExtract3Extractor()
+            if not nuextract.is_available():
+                logger.warning(
+                    "NuExtract3 model not available in Ollama. "
+                    "Run: ollama pull hf.co/numind/NuExtract3-GGUF:Q4_K_M"
+                )
+                return None
+            result = nuextract.extract(
+                image_bytes=image_bytes,
+                ocr_text=None,
+                context_number_hint=context_hint,
+            )
+            return _postprocess_checkboxes(result)
+        except Exception as e:
+            logger.error(f"NuExtract3 extraction failed: {e}")
+            return None
+
+    # ── GLM-OCR Path (default) ──
     for attempt in range(2):  # Max 2 attempts
         try:
             result = _call_glm_ocr(
@@ -469,7 +513,10 @@ def run_phase1(config: Config) -> dict[str, Any]:
             ctx_hint = src.stem.replace("ctx_", "").replace("context_", "")
 
             try:
-                result = _process_context_sheet(src, quality, ctx_hint)
+                result = _process_context_sheet(
+                    src, quality, ctx_hint,
+                    extractor=config.extractor,
+                )
                 if result:
                     result["source_file"] = src.name
                     out_path = output_dir / f"{src.stem}.json"

@@ -372,14 +372,18 @@ mandatory_sections:
 
 ### Phase 1: Multi-Modal Digitisation *(GPU-dependent)*
 
-- Context sheet OCR via **GLM-OCR** (Ollama, 2.2 GB model)
+- Context sheet OCR via **GLM-OCR** (Ollama, 2.2 GB model) — *default*
+- Alternative extractor: **NuExtract3** (Ollama, 2.7 GB Q4_K_M GGUF) — opt-in via `--extractor nuextract3`
+  - 56% better schema adherence than base Qwen3.5-4B (0.651 vs 0.417 on structured extraction benchmarks)
+  - RL-trained for exact JSON template following — reduced checkbox post-processing needed
+  - Requires model pull first: `ollama pull hf.co/numind/NuExtract3-GGUF:Q4_K_M`
 - Degraded document fallback via **Qwen3-VL-8B** (Ollama)
 - Finds catalogue parsing via **Docling** (CPU-based)
 - Pydantic structured output enforcement
 - Post-extraction checkbox normalisation (cross/filled → boolean)
 - Outputs validated against shared JSON Schema contract (`schemas/context-sheet-v1.json`)
 - Use `--strict` flag to halt on schema validation failures
-- Peak VRAM: ~2.8 GB (GLM-OCR)
+- Peak VRAM: ~2.8 GB (GLM-OCR), ~3.5 GB (NuExtract3)
 
 ### Phase 2: Spatial Reconstruction *(GPU-dependent)*
 
@@ -736,6 +740,7 @@ erd run [options]
 | `--project` / `-p` | — | Project ID (required) |
 | `--input` / `-i` | `./input` | Input directory |
 | `--strict` / `-s` | `False` | Halt Phase 1 if schema contract validation fails |
+| `--extractor` / `-e` | `glm-ocr` | Phase 1 extraction model: `glm-ocr` (default) or `nuextract3` |
 | `--phase` | — | Run single phase only |
 | `--from-phase` | — | Run from phase N onward |
 | `--workspace` / `-w` | `./erd_workspace` | Workspace root |

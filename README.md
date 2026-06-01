@@ -13,7 +13,7 @@ Targets 6 GB VRAM, runs entirely on consumer hardware. Zero API calls, zero data
 | Phase | Name | What it does | GPU? | Status |
 |---|---|---|---|---|---|
 | 0 | Ingestion & Triage | Inventory files, normalise formats, assess quality, flag problems | No | ✅ Complete |
-| 1 | Multi-Modal Digitisation | GLM-OCR for handwritten forms, checkbox extraction, Docling table parsing | Yes | ✅ Complete |
+| 1 | Multi-Modal Digitisation | GLM-OCR (default) or NuExtract3 (opt-in) for form extraction, Docling table parsing | Yes | ✅ Complete |
 | 2 | Spatial Reconstruction | Qwen3-VL-8B/GLM-OCR photo captioning, cross-check vs context sheets, SVG vectorisation | Yes | ✅ Complete |
 | 3 | Synthesis & Drafting | Qwen3.5-4B reasoning through full site dataset, produce structured draft | Yes | ✅ Complete |
 | 4 | Compliance Refinement | Gemma 4-E2B section-by-section restructuring to match jurisdiction template | Yes | ✅ Complete |
@@ -102,7 +102,7 @@ Adding a new jurisdiction means writing a YAML file — no pipeline code changes
 | — | `--strict` flag | ✅ Complete — halt Phase 1 on schema validation failure |
 | — | Schema contract | ✅ Complete — shared `schemas/context-sheet-v1.json` with StratiGraph |
 | — | StratiGraph integration | ✅ Complete — HOARD JSON import into StratiGraph matrix viewer |
-| — | NuExtract3 evaluation | ✅ Complete — benchmarked, requires vLLM (no Ollama GGUF yet) |
+| — | NuExtract3 integration | ✅ Complete — opt-in via `--extractor nuextract3`, Q4_K_M GGUF via Ollama |
 
 All 6 phases are implemented and E2E-verified with real archaeological data
 (Pinn Brook Park, 49/50 contexts, CC-BY 4.0 via ADS). The full pipeline runs on
