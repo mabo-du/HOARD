@@ -2,7 +2,8 @@
 
 **Heritage Observation And Report Drafter** — a fully local, multi-stage AI
 pipeline that converts archaeological field data into near-publication-ready
-grey literature reports.
+grey literature reports. All 6 phases are implemented and E2E-verified.
+Zero API calls required; runs entirely on consumer hardware via Ollama.
 
 ---
 
@@ -18,9 +19,13 @@ grey literature reports.
 8. [Jurisdiction Templates](#jurisdiction-templates)
 9. [Pipeline Phases](#pipeline-phases)
 10. [Harris Matrix](#harris-matrix)
-11. [Configuration](#configuration)
-12. [GPU Setup](#gpu-setup)
-13. [Troubleshooting](#troubleshooting)
+11. [Ecosystem Integration](#ecosystem-integration)
+12. [Multi-Provider AI](#multi-provider-ai)
+13. [Configuration](#configuration)
+14. [GPU Setup](#gpu-setup)
+15. [Troubleshooting](#troubleshooting)
+16. [CLI Reference](#cli-reference)
+17. [Project Structure](#project-structure)
 
 ---
 
@@ -33,19 +38,44 @@ grey literature reports.
 - **[Ollama](https://ollama.com)** — for local model inference (Phases 1-4)
 - **8 GB+ VRAM GPU** recommended — RTX 3070 Laptop verified
 
-HOARD uses Ollama for all GPU inference. No cloud API calls or pandoc required —
-DOCX is generated via python-docx and PDF/A-2b via WeasyPrint.
+HOARD uses Ollama for all GPU inference. DOCX is generated via python-docx,
+PDF/A-2b via WeasyPrint. No pandoc required.
 
 ### Install HOARD
 
 ```bash
-# From PyPI (once published)
+# From PyPI (recommended)
 pip install hoard
 
 # From source
 git clone https://github.com/mabo-du/HOARD.git
 cd HOARD
 pip install -e ".[dev]"
+```
+
+### Install ecosystem tools (optional)
+
+```bash
+# heritage-cli — unified entry point for all ecosystem tools
+pip install heritage-cli
+
+# heritage-models — shared Pydantic data types
+pip install heritage-models
+
+# heritage-vocab — offline Getty vocabulary lookup
+pip install heritage-vocab
+```
+
+### Pull Ollama models
+
+```bash
+ollama pull glm-ocr:latest            # Phase 1: context sheet OCR
+ollama pull qwen3-vl:8b               # Phase 1 fallback + Phase 2 captioning
+ollama pull huihui_ai/qwen3.5-abliterated:4B  # Phase 3: drafting
+ollama pull tripolskypetr/gemma4-uncensored-aggressive:latest  # Phase 4: compliance
+
+# Optional: NuExtract3 for improved structured extraction
+ollama pull hf.co/numind/NuExtract3-GGUF:Q4_K_M
 ```
 
 ### Verify Installation
@@ -55,8 +85,6 @@ hoard --version
 hoard --help
 ```
 
-You should see the CLI banner and available commands.
-
 ---
 
 ## Quick Start
@@ -65,24 +93,20 @@ You should see the CLI banner and available commands.
 # 1. Initialise a project
 hoard init "Stoneyfield Farm 2026" --jurisdiction historic_england_cl3
 
-# 2. Place your field records in ./input/:
-#    - Context sheets (JPG, PNG, PDF)
-#    - Finds catalogues (CSV, XLSX)
-#    - Site photographs (JPG, PNG)
-#    - Plans and section drawings (PDF, SVG, PNG)
+# 2. Place field records in ./input/ — context sheets (JPG/PNG/PDF),
+#    finds catalogues (CSV/XLSX), site photos, plans, section drawings
 
-# 3a. Option A — Run Phase 0 for paper field records (no GPU needed)
+# 3. Run Phase 0 (no GPU needed)
 hoard run --project stoneyfield_2026 --phase 0
 
-# 3b. Option B — Import from ARK if your site uses digital recording
-#     (bypasses Phase 0 and Phase 1 OCR entirely)
-# hoard import-ark --project stoneyfield_2026 --input ./ark_exports/
-
-# 4. Review any flagged items
+# 4. Review any flagged items (image quality, missing files)
 hoard review --project stoneyfield_2026
 
-# 5. Run the full pipeline (GPU-dependent phases will be skipped)
+# 5. Run the full pipeline (GPU required for Phases 1-4)
 hoard run --project stoneyfield_2026
+
+# 6. Export the final report
+hoard export --project stoneyfield_2026 --format docx,pdf,zip
 ```
 
 ---
@@ -98,8 +122,23 @@ hoard init "Project Name" --jurisdiction <code> --output ./erd_workspace
 | `name` | Project name (required, positional) | — |
 | `--jurisdiction` / `-j` | Jurisdiction template code | `historic_england_cl3` |
 | `--output` / `-o` | Working directory root | `./erd_workspace` |
+| `--detect/--no-detect` | Auto-detect hardware and suggest model tier | `--detect` |
 
-This creates: `./erd_workspace/{project_id}/config.yaml`
+On first run, HOARD probes your GPU, checks Ollama availability, tests
+network connectivity, and suggests an appropriate model tier:
+
+```
+Detected Hardware:
+  GPU: NVIDIA RTX 3070 Laptop (8 GB VRAM)
+  CPU: 8 cores
+  Ollama: Available
+  Network: Online
+
+Recommended Tier: standard — adequate VRAM (6.1 GB free)
+```
+
+Tiers range from `ultra_light` (no GPU, cloud-only) through `budget`,
+`standard`, to `performance` (16-24 GB VRAM, larger local models).
 
 ---
 
@@ -115,168 +154,95 @@ hoard run --project <id> --phase <N>
 # From phase N onward
 hoard run --project <id> --from-phase <N>
 
-# Specify input and workspace directories
-hoard run --project <id> --input ./field_records/ --workspace ./my_workspace
+# Strict mode — halt Phase 1 on schema validation failure
+hoard run --project <id> --strict
+
+# Use NuExtract3 for Phase 1 extraction (opt-in)
+hoard run --project <id> --extractor nuextract3
 ```
 
-The pipeline is **resumable** — completed phases are automatically skipped.
-To force re-run a phase, use `--phase` explicitly.
+The pipeline is **resumable** — completed phases are tracked in
+`pipeline_state.json` and automatically skipped on subsequent runs.
 
-### Current Phase Status
+### Pipeline Status
 
-| Phase | Name | Status |
-|-------|------|--------|
-| 0 | Ingestion & Triage | ✅ Complete (no GPU) |
-| 1 | Multi-Modal Digitisation | ⏳ GPU-dependent |
-| 2 | Spatial Reconstruction | ⏳ GPU-dependent |
-| 3 | Synthesis & Drafting | ⏳ GPU-dependent |
-| 4 | Compliance Refinement | ⏳ GPU-dependent |
-| 5 | Assembly & Export | ✅ Complete (no GPU) |
+| Phase | Name | GPU | Time (50 contexts) |
+|:---:|------|:---:|:---:|
+| 0 | Ingestion & Triage | No | ~1 min |
+| 1 | Multi-Modal Digitisation | Yes | ~10 min |
+| 2 | Spatial Reconstruction | Yes | ~15 min |
+| 3 | Synthesis & Drafting | Yes | ~8 min |
+| 4 | Compliance Refinement | Yes | ~5 min |
+| 5 | Assembly & Export | No | ~2 min |
 
 ---
 
 ## ARK Direct Data Input
 
-For excavations already using the **ARK (Archaeological Recording Kit)** digital
-recording system, HOARD can import structured excavation data directly —
-bypassing Phase 0 (file ingestion) and Phase 1 (OCR) entirely.
+For excavations already using the **ARK** (Archaeological Recording Kit) digital
+recording system, HOARD can import structured data directly — bypassing
+Phase 0 file ingestion and Phase 1 OCR. This saves approximately 2-4 hours
+of pipeline time.
 
-### When to Use ARK Import
-
-Use `hoard import-ark` when your excavation already records data digitally using
-ARK or compatible systems. This applies to most commercial archaeology units
-and many research excavations. The import saves approximately 2–4 hours of
-pipeline time by skipping file triage and OCR for those records.
+```bash
+hoard import-ark --project stoneyfield_2026 --input ./ark_exports/
+```
 
 ARK import handles **5 data types:**
 
-| Table | ARK Export File | Records Created |
-|-------|-----------------|-----------------|
-| Context sheets | `context.csv` / `contexts.csv` / `ctx_register.csv` | Context descriptions, interpretations, periods, dimensions |
-| Finds catalogue | `finds.csv` / `finds_catalogue.csv` / `sf_register.csv` | Object types, materials, quantities, weights |
-| Sample register | `samples.csv` / `sample.csv` / `environmental.csv` | Sample types, volumes, processing status |
-| Photo log | `photos.csv` / `photo.csv` / `photo_log.csv` | Filenames, context links, directions |
-| Drawing register | `drawings.csv` / `drawing.csv` / `plans.csv` | Drawing numbers, types, scales, draughtspersons |
+| Table | File Patterns | Records |
+|-------|--------------|---------|
+| Context sheets | `context.csv`, `contexts.csv`, `ctx_register.csv` | Context descriptions, interpretations, periods |
+| Finds catalogue | `finds.csv`, `finds_catalogue.csv`, `sf_register.csv` | Object types, materials, quantities, weights |
+| Sample register | `samples.csv`, `sample.csv`, `environmental.csv` | Sample types, volumes, processing status |
+| Photo log | `photos.csv`, `photo.csv`, `photo_log.csv` | Filenames, context links, directions |
+| Drawing register | `drawings.csv`, `drawing.csv`, `plans.csv` | Drawing numbers, types, scales |
 
-### Basic Usage
+Field names are matched case-insensitively — custom ARK instance fields are
+recognised automatically via semantic embedding similarity (all-MiniLM-L6-v2).
 
-```bash
-cd my_project
-hoard import-ark --project stoneyfield_2026 --input ./ark_export/
-```
-
-Where `./ark_export/` contains the CSV or JSON files exported from ARK.
-
-### Supported Formats
-
-- **CSV** — standard comma-separated with header row. UTF-8 BOM is handled
-  automatically. Common ARK field name variants are recognised.
-- **JSON** — top-level arrays or wrapped in `{"data": [...]}` / `{"results": [...]}`
-  (matching common ARK JSON export formats).
-
-### Field Mapping
-
-HOARD recognises ARK field names case-insensitively and maps them to the
-internal schema. Common variants are pre-configured:
-
-| ARK Source Field | Mapped To | Example |
-|------------------|-----------|---------|
-| `context_id`, `context_number`, `context_no`, `context`, `ctx` | `context_number` | `1001` |
-| `trench_code`, `trench` | `trench` | `T1` |
-| `object_type`, `object`, `type` (finds) | `object_type` | `Pottery` |
-| `quantity`, `count`, `qty` | `quantity` | `12` |
-| `weight_g`, `weight` | `weight_g` | `45.2` |
-| `sample_type`, `type` (samples) | `sample_type` | `Bulk soil` |
-| `file_name`, `filename`, `image` | `filename` | `IMG_101.jpg` |
-| `drawing_no`, `drawing_number` | `drawing_number` | `D001` |
-
-Unrecognised columns produce a warning but do not block the import. If your
-ARK instance uses custom field names not in the mapping table, the import
-still succeeds for all recognised fields — the unrecognised data is preserved
-in the original export for offline reference.
-
-### After Import
-
-Once the import completes:
-
-1. A **manifest** is written to `00_manifest/manifest.json` with synthetic
-   file entries for each ARK table.
-2. **Digitised records** are written to `01_digitised/` as individual JSON
-   files — one per ARK row — matching the format expected by Phase 5
-   assembly.
-3. **Pipeline state** marks Phase 0 and Phase 1 as **bypassed**:
-
-```
-Phases 0 and 1 have been marked as bypassed. You can proceed
-with Phase 2+ as normal.
-```
-
-You can then run subsequent phases directly:
-
-```bash
-# Skip straight to Phase 5 assembly (no GPU needed)
-hoard run --project stoneyfield_2026 --phase 5
-```
-
-When GPU models become available, you can run Phase 2+ normally:
+After import, Phases 0 and 1 are marked as **bypassed** in pipeline state.
+Proceed directly to Phase 2+:
 
 ```bash
 hoard run --project stoneyfield_2026 --from-phase 2
-```
-
-### Output Example
-
-```json
-// 01_digitised/context_0000.json
-{
-    "_source": "context",
-    "_ark_fields_mapped": 6,
-    "context_number": "1001",
-    "trench": "T1",
-    "description": "Dark brown silty clay",
-    "interpretation": "Colluvial layer",
-    "period": "Medieval",
-    "context_type": "layer"
-}
 ```
 
 ---
 
 ## Reviewing Flags
 
-After running Phase 0 (and later phases), you can review flagged items:
+After running any phase, review items flagged for human attention:
 
 ```bash
 hoard review --project stoneyfield_2026
 ```
 
-The review dashboard presents each flagged item one at a time:
+The terminal TUI presents each flagged item one at a time:
 
 ```
 ┌── Review #p0_ctx_001_BLUR_LOW (1/3) ──────────────────────────┐
 │ Phase: 0   File: assets/context_sheet_001.png                  │
 │ Field: _quality   Confidence: N/A                              │
 │ Issue: Image blur score 31.1 (threshold: 80)                   │
-│                                                                │
 │ Current value: BLUR_LOW                                        │
 └────────────────────────────────────────────────────────────────┘
 
 [a]ccept  [e]dit  [d]efer  [s]ummary  [q]uit
 ```
 
-### Review Actions
-
 | Key | Action | Description |
 |-----|--------|-------------|
-| `a` | Accept | Mark the flag as reviewed (AI value is acceptable) |
-| `e` | Edit | Provide a corrected value and optional notes |
-| `d` | Defer | Skip for now, revisit later |
+| `a` | Accept | Mark as reviewed (AI value is acceptable) |
+| `e` | Edit | Provide a corrected value |
+| `d` | Defer | Skip for later review |
 | `s` | Summary | Show progress summary |
-| `q` | Quit | Exit review session (progress saved in memory) |
+| `q` | Quit | Exit (progress saved) |
 
-After all items are reviewed or on quit, you can choose to save corrections
-back to the workspace JSON files. Corrections update the pipeline state so
-you can re-run from the corrected phase.
+Flags are generated by all phases: image quality issues (Phase 0), low-confidence
+OCR fields (Phase 1), spatial grounding failures (Phase 2), draft uncertainty
+markers (Phase 3), and compliance findings (Phase 4). Corrections are written
+back to the workspace JSON and pipeline state is updated.
 
 ---
 
@@ -290,39 +256,54 @@ hoard export --project stoneyfield_2026 --format docx,pdf,zip
 |--------|-------------|---------|
 | `--project` / `-p` | Project ID (required) | — |
 | `--format` / `-f` | Comma-separated formats | `docx,pdf` |
+| `--workspace` / `-w` | Workspace root | `./erd_workspace` |
 
-Available formats: `docx`, `pdf`, `tei-xml`, `zip`
+Available formats:
+- **docx** — python-docx with heading-styled sections, Markdown tables, inline images
+- **pdf** — WeasyPrint PDF/A-2b with XMP metadata, font subsetting, sRGB colour profile
+- **tei-xml** — lightweight TEI wrapper with Dublin Core metadata header
+- **zip** — archive including all pipeline outputs, Harris Matrix SVG, logs
 
-Output goes to: `./erd_workspace/{project_id}/05_final/`
+Output directory: `{workspace}/{project_id}/05_final/`
 
-> **Note:** Export requires Phase 5 implementation. Currently supports
-> Markdown output; DOCX/PDF via pandoc is in development.
+Optional PAdES digital signatures (requires signing key):
+```bash
+# Generate a signing key
+openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+  -keyout ~/.config/hoard/signing.pem \
+  -out ~/.config/hoard/signing.pem \
+  -subj "/CN=HOARD Report Signing Key"
+
+# Export with signed PDF
+hoard export --project stoneyfield_2026 --format docx,pdf,signed-pdf
+```
 
 ---
 
 ## Jurisdiction Templates
 
-HOARD ships with **14 jurisdiction templates** for heritage authority
-reporting standards:
+HOARD ships with **14 jurisdiction templates** for heritage authority reporting
+standards. Templates are declarative YAML files — no code changes needed to
+add a new jurisdiction.
 
 ```bash
 # List all templates
 hoard templates list
 
-# Show template details (coming soon)
-hoard templates show historic_england_cl3
+# Show template details (YAML with syntax highlighting)
+hoard templates show --name historic_england_cl3
 
 # Validate a template file
-hoard templates validate ./my_template.yaml
+hoard templates validate --file ./my_template.yaml
 ```
 
 ### Available Jurisdictions
 
 | Code | Authority | Region |
 |------|-----------|--------|
-| `historic_england_cl3` | Historic England — Evaluation | England |
-| `historic_england_cl4` | Historic England — Excavation | England |
-| `historic_environment_scotland` | HES — Data Structure Report | Scotland |
+| `historic_england_cl3` | Historic England — Evaluation (CL3) | England |
+| `historic_england_cl4` | Historic England — Excavation (CL4) | England |
+| `historic_environment_scotland` | HES — Data Structure Report (DSR) | Scotland |
 | `wales_rcahmw` | Cadw / RCAHMW | Wales |
 | `ireland_nms` | National Monuments Service | Ireland |
 | `netherlands_kna` | KNA 5.0 | Netherlands |
@@ -337,22 +318,37 @@ hoard templates validate ./my_template.yaml
 
 ### Adding a New Template
 
-1. Create a new YAML file in the `templates/` directory
-2. Follow the schema from an existing template
-3. No code changes required — the engine discovers templates automatically
+Create a YAML file in the `templates/` directory:
 
 ```yaml
 # templates/my_jurisdiction.yaml
 jurisdiction: "My Heritage Authority — Excavation Report"
-version: "2025"
+version: "1.0"
+extends: "international_generic"  # optional: inherit from another template
+
 mandatory_sections:
   - id: executive_summary
     label: "Executive Summary"
     max_words: 300
-    required_fields:
-      - project_name
-      - ngr
-# ... see existing templates for full schema
+    required_fields: [project_name, ngr, dates]
+```
+
+Templates support tool-specific extension blocks for the ecosystem
+(HOARD and Trowel can co-exist in a single file):
+
+```yaml
+# Shared core (understood by both HOARD and Trowel)
+jurisdiction: "Example"
+mandatory_sections: [...]
+
+# HOARD-specific (Trowel ignores this block)
+hoard:
+  llm_prompt: "..."
+  extraction_schema: { ... }
+
+# Trowel-specific (HOARD ignores this block)
+trowel:
+  cover_page_template: "cover.html"
 ```
 
 ---
@@ -363,338 +359,413 @@ mandatory_sections:
 
 *Rule-based, zero VRAM.*
 
-- Enumerates all input files
-- Converts HEIC/RAW/PDF to normalised PNG
-- Runs image quality checks: blur, skew, exposure
-- Classifies document types (context sheet, finds form, photo, etc.)
+- Enumerates all input files recursively
+- Converts HEIC/RAW/PDF to normalised PNG (via wand/ImageMagick)
+- Runs OpenCV quality checks: blur score, skew angle, exposure level
+- Classifies document types by filename patterns (context_sheet, finds_catalogue,
+  site_photo, plan, section, sample_result, existing_text)
 - Validates finds catalogue CSV/XLSX column headers
-- Writes manifest.json with quality flags
+- Halts if mandatory file types are missing or >90% of context sheets are degraded
+- Writes `00_manifest/manifest.json` with quality flags per file
 
 ### Phase 1: Multi-Modal Digitisation *(GPU-dependent)*
 
-- Context sheet OCR via **GLM-OCR** (Ollama, 2.2 GB model) — *default*
-- Alternative extractor: **NuExtract3** (Ollama, 2.7 GB Q4_K_M GGUF) — opt-in via `--extractor nuextract3`
-  - 56% better schema adherence than base Qwen3.5-4B (0.651 vs 0.417 on structured extraction benchmarks)
-  - RL-trained for exact JSON template following — reduced checkbox post-processing needed
-  - Requires model pull first: `ollama pull hf.co/numind/NuExtract3-GGUF:Q4_K_M`
-- Degraded document fallback via **Qwen3-VL-8B** (Ollama)
-- Finds catalogue parsing via **Docling** (CPU-based)
-- Pydantic structured output enforcement
-- Post-extraction checkbox normalisation (cross/filled → boolean)
-- Outputs validated against shared JSON Schema contract (`schemas/context-sheet-v1.json`)
-- Use `--strict` flag to halt on schema validation failures
-- Peak VRAM: ~2.8 GB (GLM-OCR), ~3.5 GB (NuExtract3)
+- **Default extractor: GLM-OCR** (0.9B, ~2.2 GB VRAM) — MIT license, JSON schema
+  adherence via Multi-Token Prediction
+- **Opt-in extractor: NuExtract3** (4B, ~3.5 GB VRAM) — `--extractor nuextract3`,
+  RL-trained for exact JSON template following (56% better schema adherence)
+- **Degraded document fallback**: Qwen3-VL-8B when GLM-OCR fails after 2 attempts
+- Finds catalogue parsing via Docling (Granite-Docling-258M, CPU-based, Apache 2.0)
+- CSV/XLSX tabular data via pandas
+- Schema validation against shared `heritage-data-package-v1.json`
+- Checkbox post-processing via regex (cross/filled → boolean)
+- Use `--strict` flag to halt the pipeline on schema validation failures
 
 ### Phase 2: Spatial Reconstruction *(GPU-dependent)*
 
-- Site photo and plan analysis via **Qwen3-VL-8B** (Ollama)
-- Auto-captioning with fills/colour/ROMFA inclusion descriptions
-- **Manifest-based filtering**: only `site_photo` and `plan` files processed
+- Site photo and plan analysis via **Qwen3-VL-8B** (~5.5 GB VRAM)
+- Manifest-based filtering: only `site_photo` and `plan` files processed
   (context sheets excluded from photo plates automatically)
-- SVG section drawing generation from all images (for Phase 3 reference)
-- Photo plates generated only if Phase 2 output exists
-- Peak VRAM: ~3.5 GB (Qwen3-VL-8B)
+- Auto-captioning with fills, colour, inclusions, orientation descriptions
+- Cross-checks against Phase 1 context data for consistency
+- SVG section drawing generation via GLM-OCR prompt engineering
+- Context hint extraction for Phase 3 synthesis
 
 ### Phase 3: Synthesis & Drafting *(GPU-dependent)*
 
 - Context assembly from all Phase 1-2 outputs
-- Structured Markdown draft via **huihui_ai/qwen3.5-abliterated:4B** (Ollama)
-- 10-section report structure: summary, intro, geology, methodology, results by area,
-  results by period, finds, discussion, bibliography, appendix reference
-- Human review triggers for uncertainty, conflicts, and missing sections
-- Chunk-and-merge for large sites (500+ contexts) with per-period context filtering
-- Peak VRAM: ~2.8 GB
+- **Qwen3.5-4B** (~2.8 GB VRAM) with thinking-mode capture for stratigraphic reasoning
+- Structured Markdown draft with `##section:id` code-block labels
+- 10-section report structure: summary, introduction, geology, methodology,
+  results by area, results by period, finds, discussion, bibliography, appendix
+- Chunk-and-merge for large sites (>70K characters): groups contexts by period,
+  processes each group, merges into a cohesive draft
+- Human review triggers for: low-confidence statements, hallucinated context
+  numbers, structural uncertainty
 
 ### Phase 4: Compliance Refinement *(GPU-dependent)*
 
-- Section-by-section compliance checking against jurisdiction template
-- Template field defaults: 11 defaults with `{project_id}`, `{project_name}`,
-  `{current_date}` template variables (eliminates most `[MISSING:]` placeholders)
-- Prohibited term replacement (scientifically inaccurate language)
-- Mandatory section verification and placeholder insertion
-- Heading style correction and figure caption formatting
-- Via **tripolskypetr/gemma4-uncensored-aggressive** (Ollama)
-- Peak VRAM: ~2.1 GB
+- **Gemma 4-E2B** (~2.1 GB VRAM) section-by-section editing
+- Template-driven restructuring: each section rewritten to match jurisdiction
+  template's mandatory sections, required fields, and style guide
+- Default value interpolation: 11 template variables (`{project_id}`,
+  `{project_name}`, `{current_date}`, etc.) — eliminates most `[MISSING:]` placeholders
+- Prohibited term scanning with preferred alternative suggestions
+- Word count enforcement per section
+- Heading style correction and figure caption format checking
 
 ### Phase 5: Assembly & Export
 
 *Rule-based, zero VRAM.*
 
-- Figure resolution and embedding, photo plates from Phase 2 captions
-- Appendix generation (context register, finds concordance, sample register)
-- Harris Matrix SVG generation from inferred stratigraphic relationships
-- Bibliography extraction from Phase 3 draft content
-- **DOCX export** via `python-docx` (45 KB, archaeological template styling)
-- **PDF/A-2b export** via WeasyPrint (80 MB with embedded context sheet images)
-- **TEI-XML lightweight** semantic export for archival/LOD pipelines
-- **PAdES digital signature** via pyHanko (optional — requires signing key)
-- **ZIP archive** packaging all outputs
-- Markdown draft always preserved as source
+- Figure resolution: `[FIG:filename]` tokens replaced with embedded Markdown images
+- Appendix generation:
+  - **Context Register** — table of all contexts with type, description, period
+  - **Finds Concordance** — table of all finds by context with material, quantity
+  - **Sample Register** — table of all samples with type and processing notes
+- **Harris Matrix SVG** — topological level assignment, period colour-coded nodes,
+  arrow rendering (pure Python, no graphviz)
+- **Photo plates** — rectpack A4 bin-packing (only Phase-2-processed images)
+- **Bibliography extraction** — citation pattern detection from Phase 3 draft
+- **DOCX export** — python-docx with cover page, heading-styled sections (H1/H2/H3),
+  justified body text (11pt Calibri), Markdown tables, inline images
+- **PDF/A-2b export** — WeasyPrint, A4 CSS stylesheet, XMP Dublin Core metadata,
+  sRGB colour profile, page headers/footers
+- **TEI-XML** — lightweight semantic export with Dublin Core header
+- **ZIP archive** — packages all pipeline outputs
+- **PAdES signatures** — optional digital signature via pyHanko (requires key)
 
 ---
 
 ## Harris Matrix
 
-HOARD generates a stratigraphic Harris Matrix SVG from context sheet
-relationships. This is produced automatically during Phase 5, or can be
-generated standalone:
+HOARD generates a stratigraphic Harris Matrix SVG from context sheet relationships
+automatically during Phase 5:
+
+```bash
+hoard run --project stoneyfield_2026 --phase 5
+# Output: erd_workspace/stoneyfield_2026/05_final/harris_matrix.svg
+```
+
+Or standalone via Python:
 
 ```python
+from pathlib import Path
 from hoard.review import generate_harris_matrix
 
-result = generate_harris_matrix(
-    context_files=list(Path("01_digitised").glob("*.json")),
+generate_harris_matrix(
+    context_files=sorted(Path("01_digitised").glob("*.json")),
     output_path=Path("harris_matrix.svg"),
     title="Stoneyfield Farm 2026",
 )
 ```
 
-The matrix is colour-coded by period:
-
-| Period | Colour |
-|--------|--------|
-| Prehistoric | Brown |
-| Roman | Red |
-| Medieval | Blue |
-| Post-Medieval | Green |
-| Modern | Grey |
-| Undated | Light Grey |
-
-Arrows point from later contexts to earlier contexts (standard Harris
-convention). No graphviz is required — the renderer is pure Python.
+**Features:**
+- Colour-coded by period (Prehistoric=Brown, Roman=Red, Medieval=Blue,
+  Post-Medieval=Green, Modern=Grey, Undated=Light Grey)
+- Arrows point from later to earlier contexts (standard Harris convention)
+- Pure Python — no graphviz, no external dependencies
+- Legend included in the SVG
 
 ---
 
-## StratiGraph Integration
+## Ecosystem Integration
 
-StratiGraph is a companion web app that visualises stratigraphic matrices from
-HOARD Phase 1 output. It runs entirely in the browser — no backend required.
+HOARD is one component of a broader open-source heritage science ecosystem:
 
-### Data Contract
+| Tool | Function | Integration |
+|------|----------|-------------|
+| **StratiGraph** | Interactive Harris Matrix viewer | HOARD Phase 1 JSON imports directly via shared schema contract |
+| **Trowel** | Desktop report drafter | Bidirectional JSON import/export; shared jurisdiction templates |
+| **Libby** | Radiocarbon calibration | StratiGraph exports OxCal CQL payloads for Libby calibration |
+| **Cache & Carry** | Offline collections management | Getty vocabulary lookup for material/period normalisation |
+| **Dibble** | 3D lithic analysis | Specialist finds appendix via JSON data bridge |
+| **heritage-cli** | Unified ecosystem CLI | Single `heritage` command routing to all tools |
 
-HOARD and StratiGraph share a JSON Schema contract at `schemas/context-sheet-v1.json`.
-Both projects validate against the same schema independently.
-
-- **HOARD** writes `schema_version: "1.0.0"` into every Phase 1 output and
-  runs advisory schema validation (use `--strict` to halt on violations)
-- **StratiGraph** validates HOARD JSON files on import and warns about
-  any schema mismatches
-
-### Importing HOARD Output into StratiGraph
+### With StratiGraph
 
 ```bash
-# 1. Start StratiGraph
+# 1. Run HOARD Phase 1
+hoard run --project stoneyfield_2026 --phase 1
+
+# 2. Import into StratiGraph
 cd ~/Projects/StratiGraph/app
-npm install
-npm run dev
-# Opens at http://localhost:5173
+npm install && npm run dev
+# Open http://localhost:5173 → Import → HOARD JSON Import
+# Select ctx_sheet_*.json files from 01_digitised/
 
-# 2. Click Import → HOARD JSON Import tab
-
-# 3. Select all ctx_sheet_*.json files from your HOARD project's
-#    01_digitised/ directory. Hold Shift for multi-select.
-
-# 4. Review the summary: contexts, relationships, any warnings
-
-# 5. Click "Generate Harris Matrix"
+# 3. StratiGraph renders the Harris Matrix, detects cycles,
+#    computes transitive reduction, and can export EEDP paths
+#    for HOARD Phase 3 synthesis or OxCal CQL for Libby
 ```
 
-### What Happens on Import
+### With heritage-cli
 
-Each HOARD JSON is parsed into an HMDP (Harris Matrix Data Package) context:
+```bash
+# Install the unified CLI
+pip install heritage-cli
 
-| HOARD Field | HMDP Mapping | StratiGraph Usage |
-|-------------|-------------|-------------------|
-| `context_number` | `id` | Node label in graph |
-| `type` | `type` (`Positive`/`Negative`/`Unknown`) | Node colour/shape |
-| `description` + `interpretation` | `description` | Sidebar display |
-| `period` | `period` | Period colour coding |
-| `cuts` | `Above` relationships | Directed edges |
-| `cut_by` | `Above` (reversed) | Directed edges |
-| `fills` | `Above` relationships | Directed edges |
-| `filled_by` | `Above` (reversed) | Directed edges |
-| `same_as` | `Equals` relationships | Horizontal alignment |
+# Run HOARD pipeline
+heritage run --project stoneyfield_2026 --auto
 
-**Stub contexts** are automatically created for any context IDs referenced
-in relationship fields but whose sheet wasn't imported (e.g., a cut referenced
-from a fill's `fills` field). These appear as `Unknown` type contexts for
-manual identification.
+# Run a multi-tool pipeline with review gates
+heritage run --project stoneyfield_2026 --pipeline pipeline.yaml
 
-### StratiGraph Features
+# Calibrate samples (if Libby is installed)
+heritage calibrate --project stoneyfield_2026
 
-- **DAG validation**: automatic cycle detection and transitive reduction
-- **Harris Matrix rendering**: auto-layout via Cytoscape.js + Dagre
-- **Publication mode**: free-drag nodes into pixel-perfect alignment
-- **Phase grouping**: colour-coded period boxes
-- **Finds heatmap**: density-based colouring by finds quantity
-- **HOARD export**: generate EEDP (linear chronological paths) for AI prompts
-- **Libby/OxCal export**: Bayesian chronological modelling integration
-- **Export**: PNG, SVG, PDF
+# Check ecosystem tool status
+heritage tools list
+```
+
+### Pipeline orchestration example
+
+Create a `pipeline.yaml` for multi-tool workflows:
+
+```yaml
+steps:
+  - project: hoard
+    phases: [0, 1, 2]
+  - gate: review
+    message: "Review the Harris Matrix in StratiGraph before proceeding"
+    action: "stratigraph import --path output/01_digitised"
+  - project: hoard
+    phases: [3, 4]
+  - gate: review
+    message: "Review the draft before final export"
+  - project: hoard
+    action: export
+    formats: [docx, pdf]
+```
+
+```bash
+heritage run --project stoneyfield_2026 --pipeline pipeline.yaml
+```
+
+---
+
+## Multi-Provider AI
+
+HOARD supports **four AI backends** for GPU phases, selectable per phase:
+
+| Provider | Format | When to use |
+|----------|--------|-------------|
+| **Ollama** (default) | Local GPU inference | Full privacy, offline, 8+ GB VRAM |
+| **OpenAI** | Cloud API | Fast prose, GPT-4o-mini from $0.15/M tokens |
+| **Anthropic** | Cloud API | Best narrative quality (Claude Sonnet 4) |
+| **Google Gemini** | Cloud API | Cheapest cloud option ($0.10/M tokens), 1M context |
+
+### Hardware tiers
+
+HOARD auto-detects your hardware and suggests a tier on `hoard init`:
+
+| Tier | VRAM | Phase 1 | Phase 2 | Phase 3 | Phase 4 |
+|------|:----:|---------|---------|---------|---------|
+| Ultra-light | No GPU | Cloud API | Cloud API | Cloud API | Cloud API |
+| Budget | 6 GB | GLM-OCR | Qwen3-VL-4B | Qwen3.5-4B | Gemma 4-E2B |
+| Standard | 8-12 GB | GLM-OCR | Qwen3-VL-8B | Qwen3.5-4B | Gemma 4-E2B |
+| Performance | 16-24 GB | NuExtract3 | PaliGemma 2 | Qwen3-8B | Gemma 4-9B |
+
+Override the tier per run:
+
+```bash
+hoard run --project X --tier ulta_light      # cloud only (needs API keys)
+hoard run --project X --tier budget           # minimum local models
+hoard run --project X --offline               # never use cloud APIs
+```
+
+### Routing modes
+
+| Mode | Behaviour |
+|------|-----------|
+| **Manual** (strict) | Uses only the explicitly configured provider per phase |
+| **Auto** | Cascading availability: try local first, cloud fallback |
+| **Quality** | Local for extraction phases (1, 2), cloud for prose (3, 4) |
+
+Configured in `~/.config/hoard/config.yaml`:
+
+```toml
+[system]
+routing_mode = "quality"
+privacy_tier = "strict_local"
+hardware_tier = "auto"
+```
+
+### Privacy tiers
+
+| Tier | Data sent to cloud |
+|------|-------------------|
+| **Strict Local** (default) | No data ever leaves your machine |
+| **Sanitized Cloud** | Text only; coordinates and images stay local |
+| **Full Hybrid** | Full data flow (institutional DPAs recommended) |
+
+### API key management
+
+```bash
+# Store an API key (encrypted at rest with AES-256-GCM)
+hoard keys set openai sk-...
+hoard keys set anthropic sk-ant-...
+hoard keys set google AIza...
+
+# List configured providers
+hoard keys list
+
+# Remove a key
+hoard keys remove openai
+```
+
+Keys are encrypted with PBKDF2-SHA256 (100K iterations) + AES-256-GCM and
+stored in `~/.config/hoard/credentials.yaml.enc`. Master password from
+`HOARD_VAULT_KEY` environment variable or interactive prompt.
+
+### Cost comparison
+
+Per typical 50-context site report:
+
+| Provider | Estimated cost | Notes |
+|----------|:-------------:|-------|
+| Local (Ollama) | $1.95 (hardware amortised) | Privacy guaranteed |
+| Gemini 2.5 Flash-Lite | ~$0.09 | 1M context window |
+| GPT-4o-mini | ~$0.13 | Fast, widely available |
+| Claude Sonnet 4 | ~$0.46 | Best prose quality |
+| Gemini 2.5 Pro | ~$2.94 | Premium capability |
 
 ---
 
 ## Configuration
 
-Projects are configured via `erd_workspace/{project_id}/config.yaml`:
+### Global config: `~/.config/hoard/config.yaml`
+
+Controls the multi-provider AI behaviour:
+
+```toml
+[system]
+routing_mode = "quality"
+privacy_tier = "strict_local"
+hardware_tier = "auto"
+latency_budget_seconds = 60
+cloud_preferred_phases = [3, 4]
+
+[phases.phase3]
+# provider = "anthropic"
+# model = "claude-sonnet-4-20250514"
+```
+
+### Project config: `{workspace}/{project_id}/config.yaml`
+
+Created by `hoard init`:
 
 ```yaml
-# HOARD project: Stoneyfield Farm 2026
 project_id: stoneyfield_2026
 project_name: Stoneyfield Farm 2026
 jurisdiction: historic_england_cl3
+extractor: glm-ocr
+strict: false
 ```
 
-The `Config` object is immutable after creation:
+### Credential vault: `~/.config/hoard/credentials.yaml.enc`
 
-| Field | Description |
-|-------|-------------|
-| `project_id` | URL-safe project identifier |
-| `project_name` | Human-readable project name |
-| `jurisdiction` | Template code for compliance |
-| `workspace_root` | Parent directory of all project workspaces |
-| `input_dir` | Directory containing field records |
+Encrypted with AES-256-GCM. Contains API keys for cloud providers.
+Managed via `hoard keys` subcommands.
+
+### Ecosystem config: `~/.config/heritage/config.toml`
+
+Shared across all heritage ecosystem tools (HOARD, StratiGraph, Trowel, etc.):
+
+```toml
+[paths]
+workspace = "~/heritage_workspace"
+
+[defaults]
+jurisdiction = "historic_england_cl3"
+```
 
 ---
 
 ## GPU Setup
 
-Phases 1–4 require a CUDA-capable GPU with at least 6 GB VRAM.
-
 ### Recommended hardware
 
 - NVIDIA RTX 3060 (12 GB) or better
-- NVIDIA RTX 4060 (8 GB)
-- NVIDIA RTX 4070 (12 GB)
+- NVIDIA RTX 4060/4070 (8-12 GB)
 - M-series Mac with unified memory (16 GB+)
 
-### Software requirements
+### VRAM budget by tier
+
+**Standard tier** (8-12 GB, recommended):
+| Phase | Model | VRAM |
+|:---:|-------|:----:|
+| 1 | GLM-OCR | ~2.2 GB |
+| 2 | Qwen3-VL-8B | ~5.5 GB |
+| 3 | Qwen3.5-4B | ~2.8 GB |
+| 4 | Gemma 4-E2B | ~2.1 GB |
+
+Models load and evict sequentially via `keep_alive=0` — peak VRAM never exceeds
+the single largest model.
+
+### Benchmarking
 
 ```bash
-# CUDA toolkit (Linux)
-sudo apt-get install nvidia-cuda-toolkit
-
-# Verify GPU is available
-python -c "import torch; print(torch.cuda.is_available())"
+hoard run --project pinn_brook_2026 --benchmark
 ```
 
-### Ollama models
+Logs per-phase VRAM peak/average, GPU temperature, power draw, and Ollama
+model memory to `logs/benchmarks/`.
 
-All GPU inference runs via Ollama. Pull models before first use:
+### Verify
 
 ```bash
-# Phase 1: Context sheet OCR
-ollama pull glm-ocr:latest
+# Check GPU
+nvidia-smi
 
-# Phase 1 fallback: Degraded document processing
-ollama pull qwen3-vl:8b
-
-# Phase 2: Photo/plan captioning
-ollama pull qwen3-vl:8b  # (same model, shared with Phase 1 fallback)
-
-# Phase 3: Report drafting
-ollama pull huihui_ai/qwen3.5-abliterated:4B
-
-# Phase 4: Compliance refinement
-ollama pull tripolskypetr/gemma4-uncensored-aggressive:latest
-
-# Verify all models
+# Check Ollama
 ollama list
+ollama ps
 ```
-
-Models load and evict sequentially — HOARD calls `/api/generate` with
-`keep_alive: 0` to unload from VRAM when each phase finishes.
-
-### VRAM budget
-
-| Phase | Peak VRAM | Model(s) |
-|-------|-----------|---------|
-| 1 | ~2.8 GB | GLM-OCR (Ollama, 2.2 GB) |
-| 2 | ~3.5 GB | Qwen3-VL-8B (Ollama) |
-| 3 | ~2.8 GB | huihui_ai/qwen3.5-abliterated:4B (Ollama) |
-| 4 | ~2.1 GB | tripolskypetr/gemma4-uncensored-aggressive (Ollama) |
-
-Models load and clear sequentially — peak VRAM never exceeds the single
-largest model at any moment. Benchmark with `--benchmark` flag:
-```bash
-PYTHONPATH=src python3 -m hoard run \
-    --project pinn_brook_park_2026 \
-    --workspace /tmp/pinnbrook \
-    --benchmark
-```
-This logs per-phase VRAM peak/average, GPU temperature, power draw,
-and Ollama model memory to `logs/benchmarks/`.
 
 ---
 
 ## Troubleshooting
 
 ### "No input files found"
-
-Ensure your field records are in the `./input/` directory (or specify with
-`--input`). Accepted formats: JPG, PNG, PDF, HEIC, CSV, XLSX, DXF, SVG, TXT,
-DOCX, MD.
+Ensure your field records are in the `./input/` directory (or use `--input`).
+Accepted formats: JPG, PNG, PDF, HEIC, CSV, XLSX, DXF, SVG, TXT, DOCX, MD.
 
 ### "Mandatory file check failed"
+Pipeline requires at least one context sheet and one finds catalogue (CSV/XLSX
+or form image).
 
-Pipeline requires at least:
-- Context sheets (one or more)
-- Finds catalogue (CSV, XLSX, or form image)
-
-### "Phase X is not yet implemented"
-
-Phases 1–4 require GPU. Run Phase 0 and Phase 5 only for now:
-
-```bash
-hoard run --project <id> --phase 0
-hoard run --project <id> --phase 5
-```
-
-### "Review dashboard shows no flags"
-
-Run a phase first to generate data:
-```bash
-hoard run --project <id> --phase 0
-hoard review --project <id>
-```
+### "ModuleNotFoundError: No module named 'hoard.providers.credentials'"
+Install the cryptography dependency: `pip install cryptography`
 
 ### "WeasyPrint fails on PDF export"
-
-WeasyPrint requires system-level rendering libraries:
-
+WeasyPrint requires Pango and Cairo system libraries:
 ```bash
 # Ubuntu/Debian
 sudo apt-get install libpango-1.0-0 libpangocairo-1.0-0 libgdk-pixbuf2.0-0
-
 # Fedora
 sudo dnf install pango cairo gdk-pixbuf2
 ```
 
 ### "Schema validation warnings during Phase 1"
-
-This is normal for OCR-extracted data — some fields may have minor format
-differences. Review the warnings in the log output. Use `--strict` if you
-want Phase 1 to halt on validation failure for manual review.
+Normal for OCR-extracted data. Use `--strict` to halt on validation failure
+if you want to review every discrepancy.
 
 ### "HOARD JSON import in StratiGraph shows no relationships"
+GLM-OCR cannot reliably parse the Harris Matrix diagram drawn on context
+sheets. Relationships (cuts/fills) are only present if the OCR captured them
+from the form text. Add relationships manually in StratiGraph or via CSV import.
 
-GLM-OCR extracts form text but cannot reliably parse the Harris Matrix
-diagram drawn on the context sheet. Relationships (cuts, fills) are only
-present if the OCR captured them from the form text. This is a known
-limitation — relationships must be added manually in StratiGraph or
-entered via CSV import.
-
-### "No module named 'torch'"
-
-PyTorch is only needed for GPU phases. The CPU-only phases (0, 5) and
-the review dashboard work without it.
+### "Export shows 'no output generated'"
+Ensure the pipeline has been run at least through Phase 3 before exporting.
+```bash
+hoard run --project <id> --from-phase 0
+hoard export --project <id> --format docx,pdf
+```
 
 ---
 
 ## CLI Reference
-
-```bash
-hoard <command> [options]
-```
 
 ### Global Options
 
@@ -708,94 +779,18 @@ hoard <command> [options]
 | Command | Description |
 |---------|-------------|
 | `init` | Initialise a new project |
-| `run` | Run the pipeline (full or partial) |
+| `run` | Run the pipeline (full, partial, or multi-tool pipeline) |
 | `import-ark` | Import structured data from ARK system exports |
-| `review` | Open the review dashboard |
-| `export` | Export final report |
-| `templates` | List, show, or validate templates |
-
-### `hoard init`
-
-```bash
-hoard init <name> [options]
-```
-
-| Argument | Description |
-|----------|-------------|
-| `name` | Project name (positional, required) |
-
-| Option | Default |
-|--------|---------|
-| `--jurisdiction` / `-j` | `historic_england_cl3` |
-| `--output` / `-o` | `./erd_workspace` |
-
-### `hoard run`
-
-```bash
-hoard run [options]
-```
-
-| Option | Default | Description |
-|--------|---------|-------------|
-| `--project` / `-p` | — | Project ID (required) |
-| `--input` / `-i` | `./input` | Input directory |
-| `--strict` / `-s` | `False` | Halt Phase 1 if schema contract validation fails |
-| `--extractor` / `-e` | `glm-ocr` | Phase 1 extraction model: `glm-ocr` (default) or `nuextract3` |
-| `--phase` | — | Run single phase only |
-| `--from-phase` | — | Run from phase N onward |
-| `--workspace` / `-w` | `./erd_workspace` | Workspace root |
-
-### `hoard import-ark`
-
-```bash
-hoard import-ark [options]
-```
-
-| Option | Default | Description |
-|--------|---------|-------------|
-| `--project` / `-p` | — | Project ID (required) |
-| `--input` / `-i` | `./input` | Directory containing ARK export files |
-| `--workspace` / `-w` | `./erd_workspace` | Workspace root |
-
-Accepts CSV or JSON exports. Recognises context sheets, finds catalogues,
-sample registers, photo logs, and drawing registers. Marks Phase 0 and Phase 1
-as bypassed in pipeline state.
-
-### `hoard review`
-
-```bash
-hoard review [options]
-```
-
-| Option | Default | Description |
-|--------|---------|-------------|
-| `--project` / `-p` | — | Project ID (required) |
-| `--workspace` / `-w` | `./erd_workspace` | Workspace root |
-| `--reset` / `-r` | `False` | Reset all review decisions |
-
-### `hoard export`
-
-```bash
-hoard export [options]
-```
-
-| Option | Default | Description |
-|--------|---------|-------------|
-| `--project` / `-p` | — | Project ID (required) |
-| `--format` / `-f` | `docx,pdf` | Output formats |
-| `--workspace` / `-w` | `./erd_workspace` | Workspace root |
-
-### `hoard templates`
-
-```bash
-hoard templates <action> [options]
-```
-
-| Action | Description |
-|--------|-------------|
-| `list` | List all available templates |
-| `show` | Show template details (use `--name`) |
-| `validate` | Validate a template file (use `--file`) |
+| `review` | Open the review dashboard for flagged items |
+| `export` | Export final report in specified formats |
+| `templates list` | List available jurisdiction templates |
+| `templates show --name <code>` | Show template YAML with syntax highlighting |
+| `templates validate --file <path>` | Validate a template YAML file |
+| `keys set <provider> <key>` | Store an encrypted API key |
+| `keys list` | List configured API keys |
+| `keys remove <provider>` | Remove an API key |
+| `keys unlock` | Unlock the credential vault |
+| `keys init` | Initialise a new credential vault |
 
 ---
 
@@ -809,23 +804,33 @@ my_project/
 │   ├── finds_catalogue.csv
 │   ├── site_photos/
 │   └── plans/
-├── erd_workspace/
-│   └── stoneyfield_2026/
-│       ├── config.yaml             # Project configuration
-│       ├── pipeline_state.json     # Resumable pipeline state
-│       ├── 00_manifest/
-│       │   └── manifest.json       # File inventory and quality flags
-│       ├── 01_digitised/           # Phase 1 JSON outputs
-│       ├── 02_spatial/             # Phase 2 geometry and captions
-│       ├── 03_draft/               # Phase 3 Markdown sections
-│       ├── 04_refined/             # Phase 4 compliance reports
-│       ├── 05_final/               # Final exported reports
-│       ├── assets/                 # Normalised images
-│       └── logs/                   # Per-phase logs
-└── templates/
-    ├── historic_england_cl3.yaml   # Jurisdiction templates
-    └── ...
+└── erd_workspace/
+    └── stoneyfield_2026/
+        ├── config.yaml             # Project configuration
+        ├── pipeline_state.json     # Resumable pipeline state
+        ├── logs/
+        │   ├── phase0.log
+        │   └── provider_audit.json  # AI inference audit trail
+        ├── 00_manifest/
+        │   └── manifest.json       # File inventory + quality flags
+        ├── 01_digitised/           # Phase 1 JSON outputs
+        ├── 02_spatial/             # Phase 2 geometry + captions
+        ├── 03_draft/               # Phase 3 Markdown draft sections
+        ├── 04_refined/             # Phase 4 compliance-refined draft
+        └── 05_final/               # Final exports
+            ├── report.md
+            ├── report_20260609_143022.docx
+            ├── report_20260609_143022.pdf
+            ├── report_20260609_143022.xml
+            ├── archive_20260609_143022.zip
+            └── harris_matrix.svg
 ```
+
+---
+
+## Licence
+
+MIT — built for the archaeological community.
 
 ---
 
@@ -833,5 +838,4 @@ my_project/
 
 - **Issues:** https://github.com/mabo-du/HOARD/issues
 - **Repository:** https://github.com/mabo-du/HOARD
-
-Licensed under MIT. Built for the archaeological community.
+- **Research papers:** `docs/research-papers/`
