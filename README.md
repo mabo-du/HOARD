@@ -8,16 +8,41 @@ Targets 8 GB VRAM consumer GPUs. Runs entirely on-device via Ollama — zero API
 
 ---
 
-## Pipeline
+## Features
 
-| Phase | Name | What it does | GPU | Status |
-|:---:|------|-------------|:---:|:---:|
-| 0 | Ingestion & Triage | File inventory, format normalisation (HEIC/RAW/PDF→PNG), OpenCV quality assessment, filename-based classification, CSV/XLSX validation | No | ✅ |
-| 1 | Multi-Modal Digitisation | GLM-OCR (default) or NuExtract3 (opt-in) for form extraction, Docling table parsing, pandas for CSV/XLSX, checkbox normalisation, schema validation | Yes | ✅ |
-| 2 | Spatial Reconstruction | Qwen3-VL-8B photo captioning + cross-check against context sheets, GLM-OCR SVG vectorisation for field section drawings | Yes | ✅ |
-| 3 | Synthesis & Drafting | Qwen3.5-4B reasoning across full site dataset, chunk-and-merge for large sites (>70K chars), thinking-mode capture, uncertainty markers | Yes | ✅ |
-| 4 | Compliance Refinement | Gemma 4-E2B section-by-section restructuring to match jurisdiction template, prohibited term scanning, word count enforcement, placeholder insertion | Yes | ✅ |
-| 5 | Assembly & Export | Figure resolution, appendix generation, Harris Matrix SVG, photo plates (rectpack), bibliography extraction, DOCX + PDF/A-2b + TEI-XML + ZIP export | No | ✅ |
+### End-to-End Report Generation
+Converts raw field records (context sheets, finds catalogues, photographs, section drawings, sample results) into a complete grey literature report in six automated phases — from file triage through to publication-ready DOCX, PDF/A-2b, TEI-XML, and ZIP export. All six phases are implemented and E2E-verified on real archaeological data.
+
+### Multi-Provider AI
+Switch between four AI backends per pipeline phase — **Ollama** (local GPU), **OpenAI**, **Anthropic Claude**, and **Google Gemini** — with intelligent routing based on task requirements, privacy constraints, and hardware availability. Configure once; HOARD selects the optimal provider automatically.
+
+### Hardware Tier System
+Auto-detects your GPU, VRAM, and Ollama models on first run and suggests an appropriate tier:
+- **Ultra-light** — no GPU needed, cloud-only inference
+- **Budget** — 6 GB VRAM, compact local models
+- **Standard** — 8-12 GB VRAM, full local pipeline
+- **Performance** — 16-24 GB VRAM, high-end local models
+
+### 14 Jurisdiction Templates
+Reports conform to heritage authority standards in England, Scotland, Wales, Ireland, Netherlands, France, Germany, US, Canada, Australia, New Zealand, and South Africa — all driven by declarative YAML templates. Adding a new jurisdiction means writing one YAML file; no code changes required.
+
+### Interactive Review Dashboard
+After each pipeline phase, a terminal TUI presents flagged items (blurred images, low-confidence OCR, spatial mismatches, compliance warnings) for Accept/Edit/Defer review. Corrections write back to the workspace and update pipeline state for re-runnable workflows.
+
+### Offline Getty Vocabulary
+Standardises materials, periods, and artefact types against Getty AAT/ULAN/TGN terms using the `heritage-vocab` library — works offline with a built-in fallback covering common archaeological terms. No API calls required.
+
+### Harris Matrix Generator
+Pure-Python SVG stratigraphic matrix from context relationships. Colour-coded by period, arrows from later to earlier contexts. No graphviz or external tools needed.
+
+### Cryptographically Signed PDFs
+Optional PAdES-B/LTV digital signatures via pyHanko for legally compliant report certification.
+
+### Cloud-Ready Credential Vault
+API keys for OpenAI, Anthropic, and Google are stored encrypted at rest (AES-256-GCM + PBKDF2) and managed via `hoard keys set/list/remove`. Cross-compatible with the Kryptis vault format.
+
+### Ecosystem Integration
+HOARD shares data contracts and workflows with [StratiGraph](https://github.com/mabo-du/stratigraph) (Harris Matrix viewer), Trowel (desktop report drafter), Libby (radiocarbon calibration), Cache & Carry (offline collections management), and Dibble (3D lithic analysis) — all accessible through the unified `heritage` CLI.
 
 ## Quick Start
 
