@@ -1,0 +1,53 @@
+# Heritage Ecosystem Unified Jurisdiction Template
+# Format: Shared core + tool-specific extension blocks.
+# Tools must ignore unknown top-level keys gracefully.
+
+# ── Shared Core (understood by both HOARD and Trowel) ────────────────────────
+
+jurisdiction: "Unified Example — Multi-Tool Template"
+version: "1.0"
+extends: "historic_england_cl3"
+
+mandatory_sections:
+  - id: executive_summary
+    label: "Executive Summary"
+    max_words: 300
+    required_fields: [project_name, ngr, dates, methodology_summary, key_findings]
+  - id: introduction
+    label: "Introduction"
+    required_fields: [project_name, site_location, ngr, planning_authority]
+
+appendices:
+  - id: context_register
+    label: "Context Register"
+  - id: finds_concordance
+    label: "Finds Concordance"
+
+style:
+  heading_style: "## {number}. {label}"
+  figure_caption_format: "Figure {number}: {caption}"
+  prohibited_terms: ["obviously", "clearly", "it should be noted"]
+
+# ── HOARD Extension Block (ignored by Trowel) ───────────────────────────────
+
+hoard:
+  version: 1
+  llm_prompt: |
+    You are an archaeological report writer following Historic England CL3 guidelines.
+    Write in formal passive voice, include all mandatory sections.
+  extraction_schema:
+    period: { type: string, vocabulary: "https://vocab.getty.edu/aat/" }
+    material: { type: string, vocabulary: "https://vocab.getty.edu/aat/" }
+  review_triggers:
+    uncertainty_threshold: 0.7
+    hallucinated_context_check: true
+
+# ── Trowel Extension Block (ignored by HOARD) ───────────────────────────────
+
+trowel:
+  version: 1
+  cover_page_template: "templates/cover_letter.html"
+  report_number_format: "EV{year}-{number}"
+  company_details:
+    name: "{{ company_name }}"
+    logo: "{{ logo_path }}"

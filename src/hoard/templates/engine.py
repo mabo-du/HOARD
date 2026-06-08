@@ -143,6 +143,33 @@ class TemplateEngine:
 
         return template
 
+    # ── Unified Template Format with Extension Blocks ────────────────────
+
+    # The ecosystem-wide format uses tool-specific keys:
+    #   hoard:    { ... }  — fields only HOARD understands
+    #   trowel:   { ... }  — fields only Trowel understands
+    # All other keys are the "shared core" understood by both tools.
+
+    @staticmethod
+    def is_unified_template(data: dict[str, Any]) -> bool:
+        """Check if a template uses the unified format with extension blocks."""
+        return "hoard" in data or "trowel" in data
+
+    @staticmethod
+    def get_core(data: dict[str, Any]) -> dict[str, Any]:
+        """Extract the shared core from a unified template (strip extension blocks)."""
+        return {k: v for k, v in data.items() if k not in ("hoard", "trowel")}
+
+    @staticmethod
+    def get_hoard_ext(data: dict[str, Any]) -> dict[str, Any]:
+        """Extract HOARD-specific extension block, or empty dict."""
+        return data.get("hoard", {})
+
+    @staticmethod
+    def get_trowel_ext(data: dict[str, Any]) -> dict[str, Any]:
+        """Extract Trowel-specific extension block, or empty dict."""
+        return data.get("trowel", {})
+
     @staticmethod
     def _merge_templates(parent: dict[str, Any], child: dict[str, Any]) -> dict[str, Any]:
         """Merge child template into parent (deep merge). Child values win."""
