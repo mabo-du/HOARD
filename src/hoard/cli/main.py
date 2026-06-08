@@ -28,6 +28,7 @@ from hoard import __version__
 from hoard.config import Config, init_project_config
 from hoard.cli.run import run_pipeline, run_single_phase
 from hoard.templates.engine import TemplateEngine
+from hoard.cli.keys import keys_app
 
 app = typer.Typer(
     name="hoard",
@@ -36,6 +37,9 @@ app = typer.Typer(
     rich_markup_mode="rich",
 )
 console = Console()
+
+
+app.add_typer(keys_app)
 
 
 def _version_callback(value: bool) -> None:
@@ -64,6 +68,10 @@ def init(
         "./erd_workspace", "--output", "-o",
         help="Working directory root",
     ),
+    detect_hardware: bool = typer.Option(
+        True, "--detect/--no-detect",
+        help="Auto-detect hardware and suggest model tier",
+    ),
 ) -> None:
     """Initialise a new ERD project."""
     project_id = name.lower().replace(" ", "_").replace("'", "")
@@ -78,7 +86,19 @@ def init(
     console.print(f"  Project ID:  {project_id}")
     console.print(f"  Jurisdiction: {jurisdiction}")
     console.print(f"  Workspace:    {cfg.project_dir}")
-    console.print("\n[yellow]ℹ[/] Ready. Run [bold]hoard run --project {project_id} --phase 0[/] to run Ingestion & Triage.")
+
+    # Hardware detection and tier suggestion
+    if detect_hardware:
+        try:
+            from hoard.providers import get_router
+            summary = get_router(interactive=True, force_reinit=True)
+            console.print(f"\n[bold]Hardware Profile:[/]")
+            for line in summary.split("\n"):
+                console.print(f"  {line}")
+        except ImportError:
+            pass  # providers module not yet available (dev install without deps)
+
+    console.print(f"\n[yellow]ℹ[/] Ready. Run [bold]hoard run --project {project_id} --phase 0[/] to run Ingestion & Triage.")
 
 
 @app.command()

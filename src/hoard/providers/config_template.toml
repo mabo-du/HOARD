@@ -1,0 +1,39 @@
+# HOARD Provider Configuration
+# Location: ~/.config/hoard/config.yaml
+#
+# This file controls the multi-provider AI routing behaviour.
+# See docs/research-prompts/multi-provider-ai-abstraction.md for full docs.
+
+[system]
+# Routing mode: "manual" (strict), "auto" (cascading), "quality" (hybrid)
+routing_mode = "auto"
+
+# Privacy tier: "strict_local", "sanitized_cloud", "full_hybrid"
+privacy_tier = "strict_local"
+
+# Hardware tier: "auto", "ultra_light", "budget", "standard", "performance"
+hardware_tier = "auto"
+
+# Max seconds to wait for a provider response before falling back
+latency_budget_seconds = 60
+
+# Phases that prefer cloud providers in "quality" mode
+cloud_preferred_phases = [3, 4]
+
+# ── Per-Phase Manual Configuration ────────────────────────────────────
+# Uncomment and set to override auto-selection for specific phases.
+# Only used when routing_mode = "manual".
+
+# [phases.phase1]
+# provider = "ollama"
+# model = "glm-ocr:latest"
+
+# [phases.phase3]
+# provider = "anthropic"
+# model = "claude-sonnet-4-20250514"
+# profile = "default"
+
+# [phases.phase4]
+# provider = "google"
+# model = "gemini-2.5-flash-lite"
+# profile = "default"
