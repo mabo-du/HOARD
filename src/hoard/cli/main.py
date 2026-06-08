@@ -27,6 +27,7 @@ from rich.table import Table
 from hoard import __version__
 from hoard.config import Config, init_project_config
 from hoard.cli.run import run_pipeline, run_single_phase
+from hoard.templates.engine import TemplateEngine
 
 app = typer.Typer(
     name="hoard",
@@ -254,11 +255,40 @@ def export(
         help="Working directory root",
     ),
 ) -> None:
-    """Export final report in specified formats."""
+    """Export final report in specified formats.
+
+    Runs Phase 5 assembly and export for an already-processed project.
+    Requires that Phases 0-4 have been completed first.
+    """
+    workspace_root = Path(workspace).resolve()
     formats = [f.strip() for f in fmt.split(",")]
-    console.print(f"[blue]→[/] Exporting [bold]{project}[/] as: {', '.join(formats)}")
-    console.print(f"  Output: {workspace}/{project}/05_final/")
-    console.print("\n[yellow]ℹ[/] Export requires Phase 5 implementation (not yet built).")
+
+    from hoard.config import load_config
+    cfg = load_config(project, workspace_root)
+    if cfg is None:
+        console.print(f"[red]✗[/] Project '{project}' not found at {workspace_root / project}")
+        console.print("  Initialise it first with: [bold]hoard init --name '...' -j <jurisdiction>[/]")
+        raise typer.Exit(1)
+
+    from hoard.phases.phase5 import run_phase5
+    console.print(f"[blue]→[/] Running Phase 5 assembly & export for [bold]{project}[/]")
+    console.print(f"  Formats: {', '.join(formats)}")
+
+    result = run_phase5(cfg, formats=formats)
+    export_paths = result.get("export_paths", {})
+
+    if export_paths:
+        console.print(f"[green]✓[/] Export complete")
+        for fmt_name, path in export_paths.items():
+            console.print(f"  • {fmt_name}: {path}")
+    else:
+        console.print("[yellow]ℹ[/] No output files generated. Has the pipeline been run?")
+        console.print("  Run [bold]hoard run --project {project} --from-phase 0[/] first.")
+
+    if result.get("harris_matrix"):
+        console.print(f"\n  Harris Matrix: {result['harris_matrix']}")
+    if result.get("appendices_generated"):
+        console.print(f"\n  Appendices: {', '.join(result['appendices_generated'])}")
 
 
 @app.command(name="templates")
@@ -298,12 +328,49 @@ def templates_cmd(
         if not name:
             console.print("[red]✗[/] Use --name <code> to specify a template")
             raise typer.Exit(1)
-        console.print(f"[blue]→[/] Showing template [bold]{name}[/] (not yet loaded)")
+        engine = TemplateEngine()
+        template = engine.get_extended_template(name)
+        if template is None:
+            console.print(f"[red]✗[/] Template '[bold]{name}[/]' not found")
+            console.print("  Run [bold]hoard templates list[/] to see available templates.")
+            raise typer.Exit(1)
+        from rich.syntax import Syntax
+        from io import StringIO
+        import yaml
+        buf = StringIO()
+        yaml.dump(template, buf, default_flow_style=False, allow_unicode=True)
+        syntax = Syntax(buf.getvalue(), "yaml", theme="monokai", line_numbers=True)
+        console.print(f"[bold]Template: {name}[/]")
+        console.print(syntax)
     elif action == "validate":
         if not file:
             console.print("[red]✗[/] Use --file <path> to specify a template file")
             raise typer.Exit(1)
-        console.print(f"[blue]→[/] Validating [bold]{file}[/] (validator not yet implemented)")
+        file_path = Path(file)
+        if not file_path.exists():
+            console.print(f"[red]✗[/] File not found: {file}")
+            raise typer.Exit(1)
+        try:
+            raw = yaml.safe_load(file_path.read_text())
+        except yaml.YAMLError as e:
+            console.print(f"[red]✗[/] YAML parse error: {e}")
+            raise typer.Exit(1)
+        if not isinstance(raw, dict):
+            console.print(f"[red]✗[/] Template is empty or not a valid YAML dictionary")
+            raise typer.Exit(1)
+        # Run structural checks via TemplateEngine
+        engine = TemplateEngine(template_dir=file_path.parent)
+        code = file_path.stem
+        report = engine.check_all("", code)
+        if report.passed:
+            console.print(f"[green]✓[/] Template '[bold]{code}[/]' is valid")
+            console.print(f"  Sections defined: {len(raw.get('mandatory_sections', []))}")
+        else:
+            console.print(f"[yellow]⚠[/] Template '[bold]{code}[/]' has {len(report.errors)} error(s)")
+            for f in report.errors:
+                console.print(f"  [red]•[/] {f.message}")
+            for f in report.warnings:
+                console.print(f"  [yellow]•[/] {f.message}")
     else:
         console.print(f"[red]✗[/] Unknown action: {action}. Use: list, show, validate")
 

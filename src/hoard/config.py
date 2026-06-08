@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import dataclasses
 from pathlib import Path
+from typing import Any
 
 
 @dataclasses.dataclass(frozen=True)
@@ -72,13 +73,36 @@ class Config:
 def load_config(project_id: str, workspace_root: Path = Path("./erd_workspace")) -> Config | None:
     """Load a project config from its workspace directory.
 
+    Reads the YAML file written by init_project_config() and returns
+    a populated Config dataclass.
+
     Returns None if the project hasn't been initialised.
     """
     config_path = workspace_root / project_id / "config.yaml"
     if not config_path.exists():
         return None
-    # TODO: parse YAML config
-    return None
+
+    import yaml
+    try:
+        raw = yaml.safe_load(config_path.read_text())
+    except yaml.YAMLError:
+        return None
+
+    if not isinstance(raw, dict):
+        return None
+
+    jurisdiction = raw.get("jurisdiction", "historic_england_cl3")
+    project_name = raw.get("project_name", project_id)
+
+    return Config(
+        project_id=project_id,
+        project_name=project_name,
+        jurisdiction=jurisdiction,
+        workspace_root=workspace_root.resolve(),
+        input_dir=workspace_root / project_id / "input",
+        strict=raw.get("strict", False),
+        extractor=raw.get("extractor", "glm-ocr"),
+    )
 
 
 def init_project_config(
@@ -102,5 +126,7 @@ def init_project_config(
         f"project_id: {project_id}\n"
         f"project_name: {project_name}\n"
         f"jurisdiction: {jurisdiction}\n"
+        f"extractor: {cfg.extractor}\n"
+        f"strict: {str(cfg.strict).lower()}\n"
     )
     return cfg
