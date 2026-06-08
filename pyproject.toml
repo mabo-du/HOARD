@@ -27,6 +27,9 @@ dependencies = [
     "openpyxl>=3",
     "pyyaml>=6",
 
+    # Shared data models (auto-generated from heritage-types TypeSpec)
+    "heritage-models>=1.0",
+
     # OCR (loaded on demand)
     # "transformers>=4.40",     # TrOCR
     # "torch>=2",               # PyTorch

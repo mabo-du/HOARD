@@ -625,11 +625,11 @@ def run_phase1(config: Config) -> dict[str, Any]:
     return summary
 
 
-_SCHEMA_PATH = Path(__file__).resolve().parent.parent.parent.parent / "schemas" / "context-sheet-v1.json"
-
-
 def _validate_context_schema(digitised_dir: Path) -> tuple[int, list[str]]:
     """Validate Phase 1 output JSON files against the shared schema contract.
+
+    Uses the heritage-models Pydantic v2 models (auto-generated from the
+    canonical heritage-types TypeSpec source) for validation.
 
     Returns (valid_count, error_messages).
 
@@ -639,29 +639,24 @@ def _validate_context_schema(digitised_dir: Path) -> tuple[int, list[str]]:
     errors: list[str] = []
     valid_count = 0
 
-    schema_path = _SCHEMA_PATH
-    if not schema_path.exists():
-        logger.info(f"Schema contract not found at {schema_path} — skipping validation")
-        return 0, []
-
     try:
-        import jsonschema
-        schema = json.loads(schema_path.read_text())
+        from heritage_models import StratigraphicUnit
     except ImportError:
-        logger.info("jsonschema not installed — skipping schema contract validation")
-        return 0, []
-    except Exception as e:
-        logger.warning(f"Could not load schema: {e}")
+        logger.info(
+            "heritage-models not installed — skipping schema contract validation. "
+            "Install with: pip install heritage-models"
+        )
         return 0, []
 
     for f in sorted(digitised_dir.glob("*.json")):
         try:
             data = json.loads(f.read_text())
-            jsonschema.validate(instance=data, schema=schema)
+            # Validate by constructing a StratigraphicUnit from the data
+            # Pydantic's extra='allow' ensures forward compatibility
+            su = StratigraphicUnit(**data)
             valid_count += 1
-        except jsonschema.ValidationError as e:
-            errors.append(f"{f.name}: {e.message[:100]}")
-        except Exception:
-            pass
+        except Exception as e:
+            errors.append(f"{f.name}: {e}")
+            continue
 
     return valid_count, errors
