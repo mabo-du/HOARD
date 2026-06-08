@@ -19,14 +19,8 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install build tools
-        run: uv pip install --system build twine
-
       - name: Build distribution
-        run: python -m build
+        run: uvx build --outdir dist/
 
       - name: Publish to PyPI
-        env:
-          TWINE_USERNAME: __token__
-          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
-        run: twine upload dist/*
+        uses: pypa/gh-action-pypi-publish@release/v1

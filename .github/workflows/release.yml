@@ -1,0 +1,294 @@
+name: Build & Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  # ── Source distribution ─────────────────────────────────────────────────
+  sdist:
+    name: Build source distribution
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.11"
+
+      - name: Build sdist + wheel
+        run: uvx build --outdir dist/
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-sdist
+          path: dist/
+
+  # ── PyPI publish ────────────────────────────────────────────────────────
+  pypi:
+    name: Publish to PyPI
+    needs: [sdist]
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist-sdist
+          path: dist/
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+
+  # ── Linux standalone executable ──────────────────────────────────────────
+  linux:
+    name: Linux (x86_64)
+    needs: [sdist]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libmagickwand-dev pandoc graphviz libcairo2 libpango-1.0-0 libgdk-pixbuf2.0-0 libffi-dev shared-mime-info
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install project and PyInstaller
+        run: |
+          uv venv
+          uv pip install -e ".[dev]"
+          uv pip install pyinstaller
+
+      - name: Build HOARD CLI executable
+        run: |
+          source .venv/bin/activate
+          pyinstaller --onefile \
+            --name hoard \
+            --add-data "templates:templates" \
+            --add-data "schemas:schemas" \
+            --hidden-import hoard.cli.main \
+            --hidden-import hoard.templates.engine \
+            --hidden-import hoard.providers.protocol \
+            --hidden-import hoard.providers.ollama \
+            --hidden-import hoard.providers.credentials \
+            --hidden-import hoard.review \
+            --hidden-import hoard.phases.phase0 \
+            --hidden-import hoard.phases.phase5 \
+            --hidden-import hoard.export.docx_writer \
+            --hidden-import hoard.export.pdf_writer \
+            --hidden-import hoard.export.photo_plates \
+            --hidden-import hoard.export.signatures \
+            --hidden-import yaml \
+            --hidden-import jsonschema \
+            --hidden-import cv2 \
+            --hidden-import PIL \
+            --hidden-import pandas \
+            --hidden-import openpyxl \
+            --hidden-import wand \
+            --hidden-import rich \
+            --hidden-import typer \
+            --collect-all hoard \
+            src/hoard/__main__.py
+
+      - name: Upload executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: hoard-linux-x86_64
+          path: dist/hoard
+
+  # ── macOS standalone executable ──────────────────────────────────────────
+  macos:
+    name: macOS (arm64)
+    needs: [sdist]
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          brew install pandoc graphviz
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install project and PyInstaller
+        run: |
+          uv venv
+          uv pip install -e ".[dev]"
+          uv pip install pyinstaller
+
+      - name: Build HOARD CLI executable
+        run: |
+          source .venv/bin/activate
+          pyinstaller --onefile \
+            --name hoard \
+            --add-data "templates:templates" \
+            --add-data "schemas:schemas" \
+            --hidden-import hoard.cli.main \
+            --hidden-import hoard.templates.engine \
+            --hidden-import hoard.providers.protocol \
+            --hidden-import hoard.providers.ollama \
+            --hidden-import hoard.providers.credentials \
+            --hidden-import hoard.review \
+            --hidden-import hoard.phases.phase0 \
+            --hidden-import hoard.phases.phase5 \
+            --hidden-import hoard.export.docx_writer \
+            --hidden-import hoard.export.pdf_writer \
+            --hidden-import hoard.export.photo_plates \
+            --hidden-import hoard.export.signatures \
+            --hidden-import yaml \
+            --hidden-import jsonschema \
+            --hidden-import cv2 \
+            --hidden-import PIL \
+            --hidden-import pandas \
+            --hidden-import openpyxl \
+            --hidden-import wand \
+            --hidden-import rich \
+            --hidden-import typer \
+            --target-architecture arm64 \
+            --collect-all hoard \
+            src/hoard/__main__.py
+
+      - name: Upload executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: hoard-macos-arm64
+          path: dist/hoard
+
+  # ── Windows standalone executable ────────────────────────────────────────
+  windows:
+    name: Windows (x86_64)
+    needs: [sdist]
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install project and PyInstaller
+        shell: pwsh
+        run: |
+          uv venv
+          uv pip install -e ".[dev]"
+          uv pip install pyinstaller
+
+      - name: Build HOARD CLI executable
+        shell: pwsh
+        run: |
+          .venv\Scripts\Activate.ps1
+          pyinstaller --onefile `
+            --name hoard `
+            --add-data "templates;templates" `
+            --add-data "schemas;schemas" `
+            --hidden-import hoard.cli.main `
+            --hidden-import hoard.templates.engine `
+            --hidden-import hoard.providers.protocol `
+            --hidden-import hoard.providers.ollama `
+            --hidden-import hoard.providers.credentials `
+            --hidden-import hoard.review `
+            --hidden-import hoard.phases.phase0 `
+            --hidden-import hoard.phases.phase5 `
+            --hidden-import hoard.export.docx_writer `
+            --hidden-import hoard.export.pdf_writer `
+            --hidden-import hoard.export.photo_plates `
+            --hidden-import hoard.export.signatures `
+            --hidden-import yaml `
+            --hidden-import jsonschema `
+            --hidden-import cv2 `
+            --hidden-import PIL `
+            --hidden-import pandas `
+            --hidden-import openpyxl `
+            --hidden-import wand `
+            --hidden-import rich `
+            --hidden-import typer `
+            --collect-all hoard `
+            src/hoard/__main__.py
+
+      - name: Upload executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: hoard-windows-x86_64
+          path: dist/hoard.exe
+
+  # ── Create GitHub Release ───────────────────────────────────────────────
+  release:
+    name: Create GitHub Release
+    needs: [linux, macos, windows, pypi]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+
+      - name: Generate release notes
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          cat > RELEASE_NOTES.md << EOF
+          # HOARD v$VERSION
+
+          **Heritage Observation And Report Drafter**
+
+          ## Downloads
+
+          | Platform | File |
+          |----------|------|
+          | Linux (x86_64) | \`hoard-linux-x86_64/hoard\` |
+          | macOS (arm64) | \`hoard-macos-arm64/hoard\` |
+          | Windows (x86_64) | \`hoard-windows-x86_64/hoard.exe\` |
+          | Source (pip install) | Published to PyPI automatically |
+
+          ## Prerequisites
+
+          - **Python 3.11+** (for pip install)
+          - **Ollama** — required for GPU phases (1-4), download from https://ollama.com
+          - **GPU with 8 GB+ VRAM** recommended (phases 1-4)
+          - Install models: \`ollama pull glm-ocr qwen3-vl:8b qwen3.5-4b gemma4\`
+
+          ## Quick Start
+
+          \`\`\`
+          hoard init "Stoneyfield Farm 2026" --jurisdiction historic_england_cl3
+          hoard run --project stoneyfield_farm_2026 --input ./field_records --phase 0
+          \`\`\`
+
+          ## What's Changed
+
+          EOF
+
+          # Append commit log since last tag
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD 2>/dev/null || echo "")
+          if [ -n "$PREV_TAG" ]; then
+            git log --oneline "${PREV_TAG}..HEAD" --no-decorate >> RELEASE_NOTES.md
+          fi
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: HOARD ${{ github.ref_name }}
+          body_path: RELEASE_NOTES.md
+          files: |
+            artifacts/hoard-linux-x86_64/hoard
+            artifacts/hoard-macos-arm64/hoard
+            artifacts/hoard-windows-x86_64/hoard.exe
+          draft: false
+          prerelease: false
