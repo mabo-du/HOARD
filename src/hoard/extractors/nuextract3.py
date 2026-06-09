@@ -1,206 +1,209 @@
-"""nuextract3.py — NuExtract3 structured extraction via Ollama.
+"""nuextract3.py — NuExtract3 structured extraction via llama.cpp.
 
-Runs the NuExtract3 Q4_K_M GGUF model through Ollama's API (which handles
-GPU inference). The model is a 4B-parameter vision-language model fine-tuned
-via reinforcement learning for structured document extraction.
-
-This module provides a drop-in replacement for ``_call_glm_ocr()`` in
-``hoard.phases.phase1`` with the same interface: image_bytes + system_prompt
-→ ContextSheet dict.
-
-NuExtract3 achieves ~0.651 on structured extraction benchmarks vs ~0.435
-for GLM-4.6V-Flash (the closest model to GLM-OCR), and 56% better schema
-adherence than the base Qwen3.5-4B.
+Runs NuExtract3 Q4_K_M GGUF directly through llama-cpp-python with GPU
+acceleration (Vulkan backend). Uses the custom NuExtract3ChatHandler
+custom chat handler (Strategy 5) which renders the GGUF's Jinja2 template
+with ``template=<schema>`` and ``mode="structured"`` — the correct way
+to activate NuExtract3's structured extraction mode.
 
 Usage:
     extractor = NuExtract3Extractor()
-    result = extractor.extract(image_bytes, system_prompt)
-    # result is a ContextSheet dict
-
-Dependencies:
-    - Ollama running at http://localhost:11434
-    - Model registered as ``nuextract3`` (via Modelfile from GGUF)
-    - ``requests``
+    result = extractor.extract(image_path="ctx_001.png")
+    # → ContextSheet dict with non-null content fields
 
 exports: NuExtract3Extractor
-         call_nuextract3()  (standalone function, same sig as _call_glm_ocr)
-used_by: hoard.phases.phase1  (when extractor="nuextract3")
+         call_nuextract3()
 """
 
 from __future__ import annotations
 
-import base64
 import json
 import logging
-import time
+import os
 from pathlib import Path
 from typing import Any
 
-import requests
-
 from hoard.extractors.template import context_sheet_template, template_to_json
-from hoard.phases.phase1 import ContextSheet
 
 logger = logging.getLogger(__name__)
 
-# ── Constants ───────────────────────────────────────────────────────────────
+# Lazy imports
+_ContextSheet = None
 
-OLLAMA_BASE_URL = "http://localhost:11434"
-NUEXTRACT3_MODEL = "nuextract3"
 
-# The Ollama model name for NuExtract3 from HuggingFace registry
-# Falls back to local 'nuextract3' if the HF one isn't pulled
-HF_MODEL = "hf.co/numind/NuExtract3-GGUF:Q4_K_M"
+def _get_context_sheet():
+    global _ContextSheet
+    if _ContextSheet is None:
+        from hoard.phases.phase1 import ContextSheet as CS
+        _ContextSheet = CS
+    return _ContextSheet
 
-TIMEOUT = 180  # seconds — NuExtract3 can be slow on first load
-TEMPERATURE = 0.0  # Greedy decoding for deterministic extraction
 
-# ── NuExtract3 System Prompt ────────────────────────────────────────────────
+# ── Model paths ─────────────────────────────────────────────────────────────
 
-NUEXTRACT_SYSTEM = (
-    "You are an archaeological document digitisation system. "
-    "Extract the specified fields from the input and output valid JSON "
-    "matching the provided template exactly.\n\n"
-    "Rules:\n"
-    "1. Output ONLY valid JSON — no preamble, no explanation, no markdown.\n"
-    "2. Use standard archaeological terminology.\n"
-    "3. Context numbers must use square brackets, e.g. [101].\n"
-    "4. If handwriting is illegible or ambiguous, provide your best estimate.\n"
-    "5. If a field is not visible, use null or [] as appropriate.\n"
-    "6. DO NOT invent data.\n"
-    "7. For 'type', use standard archaeological context types.\n"
-    "8. For sketch_present, return \"yes\" or \"no\" (string)."
+_HF_SNAPSHOT = (
+    "~/.cache/huggingface/hub/models--numind--NuExtract3-GGUF/"
+    "snapshots/631a32f126925ea54d031dc1cb23c9208889c529"
 )
+MODEL_PATH = os.path.expanduser(os.path.join(_HF_SNAPSHOT, "NuExtract3-Q4_K_M.gguf"))
+MMPROJ_PATH = os.path.expanduser(os.path.join(_HF_SNAPSHOT, "mmproj-NuExtract3-BF16.gguf"))
 
-_EXTRACTION_INSTRUCTION = (
-    "\n\nExtract the following fields from the document and output "
-    "valid JSON exactly matching this template:\n{template}"
-)
+TEMPERATURE = 0.0
+N_CTX = 16384
 
 
-# ── Main Extractor ──────────────────────────────────────────────────────────
+# ── Extractor ───────────────────────────────────────────────────────────────
 
 
 class NuExtract3Extractor:
-    """Structured document extraction using NuExtract3 via Ollama.
+    """Structured extraction with NuExtract3 via llama.cpp + custom chat handler.
 
-    Handles model availability checks, prompt construction, response
-    parsing, and graceful fallbacks.
+    Uses NuExtract3ChatHandler which renders the GGUF Jinja2 template with
+    template= and mode="structured" kwargs, enabling proper structured
+    extraction output rather than default Markdown-OCR mode.
+
+    Caches the model in VRAM across calls. Use ``unload()`` to release.
     """
 
-    def __init__(self, model_name: str | None = None) -> None:
-        self.model_name = model_name or self._resolve_model()
-        self._checked_availability = False
-        self._available = False
+    def __init__(self) -> None:
+        self._llm: Any = None
+        self._handler: Any = None
 
-    @staticmethod
-    def _resolve_model() -> str:
-        """Return the first available NuExtract3 model name.
+    # ── Model lifecycle ──────────────────────────────────────────────────
 
-        Checks the HuggingFace-registry model first, then the local one.
-        """
-        # Check both model names
-        for name in (HF_MODEL, NUEXTRACT3_MODEL):
-            try:
-                resp = requests.get(
-                    f"{OLLAMA_BASE_URL}/api/show",
-                    json={"name": name},
-                    timeout=10,
-                )
-                if resp.status_code == 200 and resp.json().get("modelfile"):
-                    logger.info(f"Using NuExtract3 model: {name}")
-                    return name
-            except (requests.RequestException, ValueError):
-                continue
+    def _load_model(self) -> None:
+        """Load NuExtract3 GGUF with mmproj + custom chat handler on GPU."""
+        from llama_cpp import Llama
 
-        logger.warning("NuExtract3 model not found in Ollama — will try nuextract3 as fallback")
-        return NUEXTRACT3_MODEL
+        if not os.path.exists(MODEL_PATH):
+            raise FileNotFoundError(
+                f"NuExtract3 GGUF not found at {MODEL_PATH}.\n"
+                "Run: huggingface-cli download numind/NuExtract3-GGUF "
+                "NuExtract3-Q4_K_M.gguf mmproj-NuExtract3-BF16.gguf "
+                "--local-dir ~/.cache/huggingface/hub/"
+            )
+
+        # Build the extraction schema (NuExtract3 typed template)
+        from hoard.extractors.nuextract3_handler import NuExtract3ChatHandler
+
+        schema = template_to_json(context_sheet_template())
+        mmproj = MMPROJ_PATH if os.path.exists(MMPROJ_PATH) else None
+        if not mmproj:
+            raise FileNotFoundError(f"mmproj not found at {MMPROJ_PATH}")
+
+        self._handler = NuExtract3ChatHandler(
+            clip_model_path=mmproj,
+            extraction_schema=schema,
+            verbose=False,
+        )
+
+        logger.info(
+            f"Loading NuExtract3 ({os.path.getsize(MODEL_PATH) / 1024**3:.1f} GB) on GPU "
+            f"with custom NuExtract3ChatHandler..."
+        )
+        self._llm = Llama(
+            model_path=MODEL_PATH,
+            mmproj=mmproj,
+            chat_handler=self._handler,
+            n_gpu_layers=-1,
+            n_ctx=N_CTX,
+            verbose=False,
+        )
+        logger.info("NuExtract3 loaded with structured extraction handler")
+
+    @property
+    def llm(self) -> Any:
+        if self._llm is None:
+            self._load_model()
+        return self._llm
 
     def is_available(self) -> bool:
-        """Check if the NuExtract3 model is registered in Ollama."""
-        if self._checked_availability:
-            return self._available
+        return os.path.exists(MODEL_PATH)
 
-        try:
-            resp = requests.get(
-                f"{OLLAMA_BASE_URL}/api/show",
-                json={"name": self.model_name},
-                timeout=10,
-            )
-            self._available = resp.status_code == 200
-        except requests.RequestException:
-            self._available = False
+    def unload(self) -> None:
+        if self._llm is not None:
+            self._llm = None
+            self._handler = None
+            import gc
+            gc.collect()
 
-        self._checked_availability = True
-        return self._available
+    # ── Extraction ───────────────────────────────────────────────────────
 
     def extract(
         self,
+        image_path: str | Path | None = None,
         image_bytes: bytes | None = None,
         ocr_text: str | None = None,
         context_number_hint: str | None = None,
     ) -> dict[str, Any]:
-        """Run NuExtract3 extraction and return a validated ContextSheet dict.
+        """Extract structured data from a context sheet image.
+
+        The NuExtract3ChatHandler handles Jinja2 template rendering with
+        ``template=<schema>`` and ``mode="structured"`` automatically.
+        The model output is validated against ContextSheet Pydantic schema.
 
         Args:
-            image_bytes: Optional PNG image bytes (for vision-capable setups).
-            ocr_text: Optional OCR text (for text-only extraction).
+            image_path: Path to context sheet PNG.
+            image_bytes: PNG bytes (alternative to image_path).
+            ocr_text: Raw OCR text (text-only mode — not yet supported
+                      with the custom handler since it requires images
+                      for the mtmd pipeline).
             context_number_hint: Optional context number hint.
 
         Returns:
-            Dict matching ContextSheet schema, or raises on failure.
-
-        At least one of image_bytes or ocr_text must be provided.
+            ContextSheet dict.
         """
         if not self.is_available():
             raise RuntimeError(
-                f"NuExtract3 model '{self.model_name}' not found in Ollama. "
-                f"Run: ollama pull {HF_MODEL}"
+                f"NuExtract3 model not found at {MODEL_PATH}.\n"
+                "Pull it with: huggingface-cli download numind/NuExtract3-GGUF "
+                "NuExtract3-Q4_K_M.gguf mmproj-NuExtract3-BF16.gguf ..."
             )
 
-        # Build the NuExtract3 typed template
-        template = context_sheet_template()
-        template_str = template_to_json(template)
+        # Build content for the user message
+        content: list[dict[str, Any]] = []
 
-        # Build the user message
-        user_message = NUEXTRACT_SYSTEM
-        user_message += _EXTRACTION_INSTRUCTION.format(template=template_str)
+        if image_path:
+            path = Path(image_path).resolve()
+            if not path.exists():
+                raise FileNotFoundError(f"Image not found: {image_path}")
+            content.append({
+                "type": "image_url",
+                "image_url": {"url": path.as_uri()},
+            })
+        elif image_bytes:
+            import base64
+            b64 = base64.b64encode(image_bytes).decode("utf-8")
+            content.append({
+                "type": "image_url",
+                "image_url": {"url": f"data:image/png;base64,{b64}"},
+            })
+        else:
+            raise ValueError("image_path or image_bytes is required for the mtmd pipeline")
 
+        # The handler's extraction_schema is already set during __init__.
+        # The context_number_hint and ocr_text go into the user text.
+        text_parts = []
         if context_number_hint:
-            user_message += f"\n\nThis is context sheet number {context_number_hint}."
-
+            text_parts.append(f"Context sheet number: {context_number_hint}.")
         if ocr_text:
-            user_message += f"\n\nOCR text from document:\n{ocr_text}"
+            text_parts.append(f"OCR text from document:\n{ocr_text}")
+        if text_parts:
+            content.append({"type": "text", "text": " ".join(text_parts)})
 
-        # Prepare the Ollama request
-        url = f"{OLLAMA_BASE_URL}/api/generate"
-        payload: dict[str, Any] = {
-            "model": self.model_name,
-            "prompt": user_message,
-            "stream": False,
-            "options": {
-                "temperature": TEMPERATURE,
-                "num_ctx": 16384,
-            },
-            "keep_alive": -1,  # Lock in VRAM during batch
-        }
+        messages = [{"role": "user", "content": content}]
 
-        # Add image if provided (vision mode)
-        if image_bytes:
-            b64_image = base64.b64encode(image_bytes).decode("utf-8")
-            payload["images"] = [b64_image]
+        response = self.llm.create_chat_completion(
+            messages=messages,
+            temperature=TEMPERATURE,
+            max_tokens=4096,
+        )
 
-        # Send request
-        resp = requests.post(url, json=payload, timeout=TIMEOUT)
-        resp.raise_for_status()
-        result = resp.json()
-        response_text = result.get("response", "").strip()
+        raw = response["choices"][0]["message"]["content"] or ""
+        response_text = self._clean_response(raw)
 
-        # NuExtract3 sometimes wraps JSON in ```json ... ``` or <think>...</think>
-        response_text = self._clean_response(response_text)
-
-        # Parse and validate with Pydantic
         try:
+            ContextSheet = _get_context_sheet()
             parsed = ContextSheet.model_validate_json(response_text)
             parsed.model = "nuextract3"
             return parsed.model_dump()
@@ -211,82 +214,31 @@ class NuExtract3Extractor:
 
     @staticmethod
     def _clean_response(text: str) -> str:
-        """Remove markdown fences and thinking blocks from model output."""
-        # Remove <think>...</think> blocks
         import re as _re
-
         text = _re.sub(r"<think>.*?</think>", "", text, flags=_re.DOTALL)
-        text = _re.sub(r"<Thought>.*?</Thought>", "", text, flags=_re.DOTALL)
-
-        # Remove ```json ... ``` fences
         text = _re.sub(r"```(?:json)?\s*", "", text)
         text = _re.sub(r"\s*```", "", text)
-
-        # Remove leading/trailing whitespace and non-JSON prefixes
         text = text.strip()
-
-        # If text starts with anything other than '{' or '[', try to find JSON
-        first_brace = text.find("{")
-        if first_brace > 0:
-            text = text[first_brace:]
-
-        last_brace = text.rfind("}")
-        if last_brace > 0:
-            text = text[: last_brace + 1]
-
+        first = text.find("{")
+        if first > 0:
+            text = text[first:]
+        last = text.rfind("}")
+        if last > 0:
+            text = text[: last + 1]
         return text
 
-    def extract_from_ocr(
-        self,
-        ocr_text: dict[str, Any] | str,
-        context_number_hint: str | None = None,
-    ) -> dict[str, Any]:
-        """Extract from existing OCR output (text-only, no vision).
 
-        Takes the string representation of GLM-OCR output and re-extracts
-        structured data using NuExtract3's superior schema adherence.
-
-        Args:
-            ocr_text: GLM-OCR output dict or raw text string.
-            context_number_hint: Optional context number hint.
-
-        Returns:
-            Validated ContextSheet dict.
-        """
-        if isinstance(ocr_text, dict):
-            text = json.dumps(ocr_text, indent=2)
-        else:
-            text = str(ocr_text)
-
-        return self.extract(
-            image_bytes=None,
-            ocr_text=text,
-            context_number_hint=context_number_hint,
-        )
-
-
-# ── Standalone Function (drop-in for _call_glm_ocr) ─────────────────────────
+# ── Standalone (drop-in for _call_glm_ocr) ──────────────────────────────────
 
 
 def call_nuextract3(
     image_bytes: bytes,
-    system_prompt: str,
+    system_prompt: str = "",
     context_number_hint: str | None = None,
 ) -> dict[str, Any]:
-    """Standalone NuExtract3 extraction — same signature as _call_glm_ocr.
-
-    Args:
-        image_bytes: Preprocessed PNG image bytes (may be ignored in text-only
-                     mode if OCR text is embedded in the system_prompt).
-        system_prompt: The extraction instructions.
-        context_number_hint: Optional context number.
-
-    Returns:
-        ContextSheet dict, or raises on failure.
-    """
+    """Drop-in replacement for ``_call_glm_ocr``."""
     extractor = NuExtract3Extractor()
     return extractor.extract(
         image_bytes=image_bytes,
-        ocr_text=None,
         context_number_hint=context_number_hint,
     )

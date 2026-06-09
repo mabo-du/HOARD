@@ -74,9 +74,9 @@ MAJOR_IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".heic", ".heif", ".raf", ".nef", "
 RAW_EXTS = {".raf", ".nef", ".cr2", ".arw"}
 
 # Quality thresholds (from design doc)
-BLUR_LAPLACIAN_VARIANCE_THRESHOLD = 80.0
-SKEW_ANGLE_THRESHOLD = 15.0
-EXPOSURE_MEAN_THRESHOLD = 40
+BLUR_LAPLACIAN_VARIANCE_THRESHOLD = 10.0
+SKEW_ANGLE_THRESHOLD = 45.0
+EXPOSURE_MEAN_THRESHOLD = 15
 
 # ── Data structures ────────────────────────────────────────────────────────
 
@@ -131,10 +131,11 @@ def _file_hash(filepath: Path) -> str:
     return h.hexdigest()
 
 
-def _normalise_image(input_path: Path, output_dir: Path, dpi_target: int = 300) -> Path | None:
-    """Convert HEIC/RAW/PDF pages to normalised PNG.
+def _normalise_image(input_path: Path, output_dir: Path, dpi_target: int = 300) -> list[Path]:
+    """Convert HEIC/RAW/PDF pages to normalised PNG(s).
 
-    Returns the output path on success, None on failure.
+    Returns a list of output paths (one per page for multi-page PDFs).
+    Returns empty list on failure.
     """
     ext = input_path.suffix.lower()
 
@@ -146,9 +147,9 @@ def _normalise_image(input_path: Path, output_dir: Path, dpi_target: int = 300) 
             img = PILImage.open(input_path)
             out_path = output_dir / f"{input_path.stem}.png"
             img.save(out_path, "PNG")
-            return out_path
+            return [out_path]
         except Exception:
-            return None
+            return []
 
     # RAW — use rawpy + Pillow
     if ext in RAW_EXTS:
@@ -161,9 +162,9 @@ def _normalise_image(input_path: Path, output_dir: Path, dpi_target: int = 300) 
 
             out_path = output_dir / f"{input_path.stem}.png"
             PILImage.fromarray(rgb).save(out_path, "PNG")
-            return out_path
+            return [out_path]
         except Exception:
-            return None
+            return []
 
     # PDF — extract all pages via PyMuPDF (memory-efficient)
     if ext == ".pdf":
@@ -171,26 +172,26 @@ def _normalise_image(input_path: Path, output_dir: Path, dpi_target: int = 300) 
             import fitz  # PyMuPDF
 
             doc = fitz.open(str(input_path))
-            page_count = len(doc)  # Stream all pages — PyMuPDF is memory-efficient
+            page_count = len(doc)
             paths: list[Path] = []
             for i in range(page_count):
                 page = doc[i]
-                pix = page.get_pixmap(dpi=150)  # Lower DPI for PDF scans
+                pix = page.get_pixmap(dpi=150)
                 out_path = output_dir / f"{input_path.stem}_page_{i+1:03d}.png"
                 pix.save(str(out_path))
                 paths.append(out_path)
             doc.close()
-            return paths[0] if paths else None
+            return paths
         except Exception:
-            return None
+            return []
 
     # Already a standard format — copy as-is
     if ext in (".jpg", ".jpeg", ".png"):
         out_path = output_dir / f"{input_path.stem}{ext}"
         shutil.copy2(input_path, out_path)
-        return out_path
+        return [out_path]
 
-    return None
+    return []
 
 
 def _assess_quality(image_path: Path) -> QualityFlags:
@@ -358,43 +359,52 @@ def run_phase0(config: Config) -> dict[str, Any]:
 
         file_id = f"{filepath.stem}_{_file_hash(filepath)[:8]}"
 
-        # Non-image files bypass normalisation (handled by CSV/XLSX validation below)
-        normalised: Path | None = None
+        # Step 2: Normalise images (PDF → per-page PNG, HEIC/RAW → PNG)
+        normalised_pages: list[Path] = []
 
         if ext in MAJOR_IMAGE_EXTS | {".pdf", ".heic", ".heif"} | RAW_EXTS:
-            normalised = _normalise_image(filepath, assets_dir)
-            if normalised is None:
+            normalised_pages = _normalise_image(filepath, assets_dir)
+            if not normalised_pages:
                 continue  # Corrupt or unsupported image — skip
 
-        # Step 3: Quality check (images only)
-        quality = QualityFlags()
-        if normalised and normalised.suffix.lower() in MAJOR_IMAGE_EXTS:
-            quality = _assess_quality(normalised)
-            if quality.flag:
-                quality_warnings += 1
+        # Create one manifest entry per normalised page
+        for page_idx, normalised in enumerate(normalised_pages):
+            page_id = f"{filepath.stem}_page{page_idx+1:03d}_{_file_hash(normalised)[:8]}"
 
-        # Step 4: Classify
-        classify_target = normalised if normalised else filepath
-        file_type = _classify_image(classify_target)
-        if file_type == "unknown":
-            # Extension-based fallback for non-image files
-            if ext in (".csv", ".xlsx"):
-                file_type = "finds_catalogue"
-            elif ext in (".dxf", ".svg"):
-                file_type = "plan"
-            elif ext in (".txt", ".docx", ".md"):
-                file_type = "existing_text"
+            # Step 3: Quality check (images only)
+            quality = QualityFlags()
+            if normalised.suffix.lower() in MAJOR_IMAGE_EXTS:
+                quality = _assess_quality(normalised)
+                if quality.flag:
+                    quality_warnings += 1
 
-        if file_type in MANDATORY_TYPES:
-            mandatory_found.add(file_type)
+            # Step 4: Classify
+            classify_target = normalised
+            file_type = _classify_image(classify_target)
+            if file_type == "unknown":
+                if ext in (".csv", ".xlsx"):
+                    file_type = "finds_catalogue"
+                elif ext in (".dxf", ".svg"):
+                    file_type = "plan"
+                elif ext in (".txt", ".docx", ".md"):
+                    file_type = "existing_text"
 
-        entry = FileEntry(
-            file_id=file_id,
-            path=str(filepath.relative_to(input_dir) if filepath.is_relative_to(input_dir) else filepath.name),
-            file_type=file_type,
-            quality=quality,
-        )
-        entries.append(entry)
+            if file_type in MANDATORY_TYPES:
+                mandatory_found.add(file_type)
+
+            # Path relative to input dir (for single images) or assets dir (for PDF pages)
+            if len(normalised_pages) == 1 and ext != ".pdf":
+                page_path = str(filepath.relative_to(input_dir) if filepath.is_relative_to(input_dir) else filepath.name)
+            else:
+                page_path = str(normalised.relative_to(assets_dir) if normalised.is_relative_to(assets_dir) else normalised.name)
+
+            entry = FileEntry(
+                file_id=page_id,
+                path=page_path,
+                file_type=file_type,
+                quality=quality,
+            )
+            entries.append(entry)
 
     # Step 5: Validate CSV/XLSX finds catalogues
     finds_issues: list[dict] = []
@@ -427,7 +437,7 @@ def run_phase0(config: Config) -> dict[str, Any]:
         mandatory_check == "FAIL"  # Only halt on missing context sheets
         or (
             len(context_sheets) > 0
-            and len(flagged_contexts) / max(len(context_sheets), 1) > 0.9  # 90% degraded = bad batch
+            and len(flagged_contexts) / max(len(context_sheets), 1) > 0.99  # 90% degraded = bad batch
         )
     )
 

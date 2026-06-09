@@ -499,13 +499,23 @@ def run_phase1(config: Config) -> dict[str, Any]:
     catalogues = [f for f in files if f.get("type") == "finds_catalogue"]
     typed_docs = [f for f in files if f.get("type") in ("existing_text",)]
 
+    def _resolve_src(entry_path: str) -> Path | None:
+        """Resolve a manifest path — check input_dir first, then assets_dir."""
+        candidate = config.input_dir / entry_path
+        if candidate.exists():
+            return candidate
+        candidate = config.assets_dir / entry_path
+        if candidate.exists():
+            return candidate
+        return None
+
     # ── Route 1: Context Sheets (GLM-OCR) ──
     if context_sheets:
         logger.info(f"Processing {len(context_sheets)} context sheet(s) via GLM-OCR")
         for entry in context_sheets:
-            src = config.input_dir / entry["path"]
-            if not src.exists():
-                logger.warning(f"File not found: {src}")
+            src = _resolve_src(entry["path"])
+            if src is None:
+                logger.warning(f"File not found: {entry['path']}")
                 failed_count += 1
                 continue
 
@@ -538,9 +548,9 @@ def run_phase1(config: Config) -> dict[str, Any]:
     if catalogues:
         logger.info(f"Processing {len(catalogues)} catalogue(s) via Docling")
         for entry in catalogues:
-            src = config.input_dir / entry["path"]
-            if not src.exists():
-                logger.warning(f"File not found: {src}")
+            src = _resolve_src(entry["path"])
+            if src is None:
+                logger.warning(f"File not found: {entry['path']}")
                 failed_count += 1
                 continue
 
@@ -577,8 +587,8 @@ def run_phase1(config: Config) -> dict[str, Any]:
 
     # ── Route 3: Existing Typed Notes (CPU) ──
     for entry in typed_docs:
-        src = config.input_dir / entry["path"]
-        if not src.exists():
+        src = _resolve_src(entry["path"])
+        if src is None:
             continue
         result = _process_typed_document(src)
         if result:
