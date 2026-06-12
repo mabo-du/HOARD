@@ -148,7 +148,7 @@ def _add_markdown_body(doc: Document, md_text: str) -> None:
     """
     lines = md_text.split("\n")
     i = 0
-    table_rows: list[list[str]] = []
+    table_rows: list[str] = []
 
     while i < len(lines):
         line = lines[i]
@@ -250,7 +250,7 @@ def _add_run_with_formatting(p: Any, text: str) -> None:
             p.add_run(part)
 
 
-def _flush_table(doc: Document, rows: list[list[str]]) -> None:
+def _flush_table(doc: Document, rows: list[str]) -> None:
     """Convert accumulated Markdown table rows into a Word table."""
     if not rows:
         return

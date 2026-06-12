@@ -94,13 +94,13 @@ class OpenAIProvider:
 
             if request.images and role == "user":
                 # Build content array with text + image parts
-                content: list[dict[str, Any]] = [{"type": "text", "text": text}]
+                content_blocks: list[dict[str, Any]] = [{"type": "text", "text": text}]
                 for b64_img in request.images:
-                    content.append({
+                    content_blocks.append({
                         "type": "image_url",
                         "image_url": {"url": f"data:image/png;base64,{b64_img}"},
                     })
-                messages.append({"role": role, "content": content})
+                messages.append({"role": role, "content": content_blocks})
             else:
                 messages.append({"role": role, "content": text})
 

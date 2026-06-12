@@ -17,6 +17,9 @@ dependencies = [
     "typer>=0.12",
     "rich>=13",
 
+    # HTTP
+    "requests>=2",
+
     # Image processing
     "pillow>=10",
     "opencv-python-headless>=4.9",

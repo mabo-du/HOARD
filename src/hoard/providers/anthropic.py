@@ -105,11 +105,11 @@ class AnthropicProvider:
 
             # Build user message content — handle vision
             if request.images:
-                content: list[dict[str, Any]] = [
+                content_blocks: list[dict[str, Any]] = [
                     {"type": "text", "text": text}
                 ]
                 for b64_img in request.images:
-                    content.append({
+                    content_blocks.append({
                         "type": "image",
                         "source": {
                             "type": "base64",
@@ -117,7 +117,7 @@ class AnthropicProvider:
                             "data": b64_img,
                         },
                     })
-                anthropic_messages.append({"role": "user", "content": content})
+                anthropic_messages.append({"role": "user", "content": content_blocks})
             else:
                 anthropic_messages.append({"role": "user", "content": text})
 

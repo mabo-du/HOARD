@@ -151,8 +151,15 @@ class ProviderRouter:
 
         if interactive:
             from hoard.providers.hardware import format_tier_summary
-            return format_tier_summary(self._hardware_profile, tier) + f"\n  {explanation}"
-        return f"Router initialised: {tier.value} tier | {explanation}"
+            self._init_summary = format_tier_summary(self._hardware_profile, tier) + f"\n  {explanation}"
+            return self._init_summary
+        self._init_summary = f"Router initialised: {tier.value} tier | {explanation}"
+        return self._init_summary
+
+    @property
+    def summary(self) -> str:
+        """Return the initialisation summary string."""
+        return getattr(self, '_init_summary', '')
 
     @property
     def hardware_profile(self) -> HardwareProfile | None:

@@ -226,7 +226,7 @@ def _load_image(image_path: Path) -> Image.Image | None:
         w, h = img.size
         if max(w, h) > MAX_IMAGE_DIMENSION:
             scale = MAX_IMAGE_DIMENSION / max(w, h)
-            img = img.resize((int(w * scale), int(h * scale)), Image.LANCZOS)
+            img = img.resize((int(w * scale), int(h * scale)), Image.Resampling.LANCZOS)
         return img
     except Exception as e:
         logger.error(f"Cannot load image {image_path}: {e}")

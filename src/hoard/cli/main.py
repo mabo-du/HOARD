@@ -91,9 +91,9 @@ def init(
     if detect_hardware:
         try:
             from hoard.providers import get_router
-            summary = get_router(interactive=True, force_reinit=True)
+            router = get_router(force_reinit=True)
             console.print("\n[bold]Hardware Profile:[/]")
-            for line in summary.split("\n"):
+            for line in router.summary.split("\n"):
                 console.print(f"  {line}")
         except ImportError:
             pass  # providers module not yet available (dev install without deps)
