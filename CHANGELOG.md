@@ -6,6 +6,60 @@ All notable changes to HOARD are documented here. This project follows
 
 ## [Unreleased]
 
+## [0.3.0] — 2026-06-12
+
+### Added
+
+- **Provider abstraction integration** — all 8 inference call sites across
+  phases 1-4 now route through `ProviderRouter` instead of raw `requests.post()`
+  calls to Ollama. Audit logging, cost tracking, and provider selection/fallback
+  are now functional.
+- **`route_sync()` method** on `ProviderRouter` — bridges async provider
+  implementations to synchronous phase callers via `asyncio.run()`.
+- **`generate_via_provider()` helper** in `hoard.helpers` — converts legacy
+  Ollama payload format to `InferenceRequest`, handles reasoning chain
+  extraction (`<think>` tags), and returns compat dict.
+- **NuExtract3 extraction handler** — 407-line custom `NuExtract3ChatHandler`
+  (Strategy 5 from research paper) now committed and wired into Phase 1 as
+  an alternative extraction engine alongside GLM-OCR.
+
+### Changed
+
+- **`config.yaml` → `config.toml`** — file was always parsed as TOML but
+  misleadingly named `.yaml`. All references updated across config, router,
+  phase5, and the template.
+- **`erd_workspace` → `hoard_workspace`** — all 14 references to the old
+  project name in CLI defaults, docstrings, and tests renamed.
+- **Docstring updates** — phase3, phase4, and providers updated to reflect
+  provider abstraction; stale `Ollama API` section headers replaced.
+
+### Fixed
+
+- **Non-image file handling in Phase 0** — CSV, XLSX, TXT, DOCX, MD, DXF, and
+  SVG files were silently ignored because the entry loop only processed
+  normalised images. Non-image files now get direct entries.
+- **Phase 0 halt threshold** — corrected from 99% (effective dead code) to 90%,
+  matching the code comment's documented intent.
+- **Phase 3 chunked token counting** — `total_tokens` now correctly sums
+  `eval_count` from overview and all per-period LLM calls.
+- **Phase 5 error handling** — export phase now wrapped in `try/except`,
+  matching phases 1-4. `run_single_phase()` also gained error handling.
+- **51 ruff lint violations** across 22 files resolved.
+- **8 mypy type errors** resolved (docx stubs, content shadowing, PIL LANCZOS
+  deprecation, Ollama payload types, ProviderRouter `.split()` bug).
+- **9 test failures** resolved (sentence-transformers skip, phase0 CSV handling,
+  Rich ANSI CLI output check).
+- **5 missing dependencies** added to `[dev]` extras: `requests`, `docling`,
+  `markdown`, `numpy`, `wand`.
+
+### Removed
+
+- **`erd_workspace/` directory** — stale test projects using old name deleted.
+- **`src/hoard_erd.egg-info/`** — stale build artifact deleted.
+- **Unused `requests` and `OLLAMA_BASE_URL` imports** from phases 1-4 after
+  provider migration.
+- **`in_table` dead state variable** from `docx_writer.py`.
+
 ## [0.2.3] — 2026-06-12
 
 ### Fixed
@@ -174,7 +228,8 @@ All notable changes to HOARD are documented here. This project follows
 - **E2E test datasets** — Pinn Brook Park (49 contexts, CC-BY 4.0), A14
   Cambridge to Huntingdon (99 contexts), Gallows Hill (50-70 contexts).
 
-[Unreleased]: https://github.com/mabo-du/HOARD/compare/v0.2.3...HEAD
+[Unreleased]: https://github.com/mabo-du/HOARD/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/mabo-du/HOARD/compare/v0.2.3...v0.3.0
 [0.2.3]: https://github.com/mabo-du/HOARD/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/mabo-du/HOARD/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/mabo-du/HOARD/compare/v0.2.0...v0.2.1

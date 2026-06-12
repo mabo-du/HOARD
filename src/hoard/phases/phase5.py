@@ -434,7 +434,7 @@ def _load_template_yaml(config: Config) -> dict[str, Any] | None:
     """Load the jurisdiction template YAML if available."""
     try:
         import yaml
-        template_path = config.project_dir / "config.yaml"
+        template_path = config.project_dir / "config.toml"
         if template_path.exists():
             data = yaml.safe_load(template_path.read_text())
             if isinstance(data, dict):

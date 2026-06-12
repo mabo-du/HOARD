@@ -1,5 +1,5 @@
 # HOARD Provider Configuration
-# Location: ~/.config/hoard/config.yaml
+# Location: ~/.config/hoard/config.toml
 #
 # This file controls the multi-provider AI routing behaviour.
 # See docs/research-prompts/multi-provider-ai-abstraction.md for full docs.

@@ -1,6 +1,6 @@
 """config.py — Project configuration loading and management.
 
-Loads project config from hoard_workspace/{project_id}/config.yaml or
+Loads project config from hoard_workspace/{project_id}/config.toml or
 CLI flags. Provides a single Config dataclass used by all phases.
 
 exports: Config, load_config, init_project_config
@@ -77,7 +77,7 @@ def load_config(project_id: str, workspace_root: Path = Path("./hoard_workspace"
 
     Returns None if the project hasn't been initialised.
     """
-    config_path = workspace_root / project_id / "config.yaml"
+    config_path = workspace_root / project_id / "config.toml"
     if not config_path.exists():
         return None
 
@@ -120,7 +120,7 @@ def init_project_config(
         input_dir=input_dir.resolve(),
     )
     cfg.project_dir.mkdir(parents=True, exist_ok=True)
-    (cfg.project_dir / "config.yaml").write_text(
+    (cfg.project_dir / "config.toml").write_text(
         f"# HOARD project: {project_name}\n"
         f"project_id: {project_id}\n"
         f"project_name: {project_name}\n"

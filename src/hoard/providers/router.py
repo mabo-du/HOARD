@@ -111,7 +111,7 @@ class ProviderRouter:
 
     Args:
         config_path: Path to TOML configuration file
-                     (~/.config/hoard/config.yaml).
+                     (~/.config/hoard/config.toml).
         project_id: Current project ID (for audit log scoping).
     """
 
@@ -120,7 +120,7 @@ class ProviderRouter:
         config_path: Path | None = None,
         project_id: str = "",
     ) -> None:
-        self.config_path = config_path or Path.home() / ".config" / "hoard" / "config.yaml"
+        self.config_path = config_path or Path.home() / ".config" / "hoard" / "config.toml"
         self.project_id = project_id
         self._config: RoutingConfig | None = None
         self._credential_store: CredentialStore | None = None
@@ -473,7 +473,7 @@ def get_router(
     An empty project_id uses a shared default instance.
 
     Args:
-        config_path: Path to config file. Defaults to ~/.config/hoard/config.yaml.
+        config_path: Path to config file. Defaults to ~/.config/hoard/config.toml.
         project_id: Project ID for audit log scoping.
         interactive: If True, format init output as user-facing wizard text.
         force_reinit: If True, re-initialise even if already initialised.
