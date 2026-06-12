@@ -24,10 +24,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from docx import Document
-from docx.enum.text import WD_ALIGN_PARAGRAPH
-from docx.enum.table import WD_TABLE_ALIGNMENT
-from docx.shared import Inches, Pt, RGBColor
+from docx import Document  # type: ignore[import-untyped]
+from docx.enum.text import WD_ALIGN_PARAGRAPH  # type: ignore[import-untyped]
+from docx.enum.table import WD_TABLE_ALIGNMENT  # type: ignore[import-untyped]
+from docx.shared import Inches, Pt, RGBColor  # type: ignore[import-untyped]
 
 
 def write_docx(
