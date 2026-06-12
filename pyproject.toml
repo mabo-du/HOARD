@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hoard-erd"
-version = "0.2.9"
+version = "0.2.10"
 description = "Heritage Observation And Report Drafter — local multi-stage AI pipeline for archaeological grey literature reports"
 requires-python = ">=3.11"
 license = { text = "MIT" }
