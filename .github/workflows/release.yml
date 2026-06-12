@@ -66,7 +66,7 @@ jobs:
 
       - name: Install project and PyInstaller
         run: |
-          uv pip install -e ".[dev]"
+          uv pip install -e ".[doc]"
           uv pip install pyinstaller
 
       - name: Build HOARD CLI executable
@@ -125,7 +125,7 @@ jobs:
 
       - name: Install project and PyInstaller
         run: |
-          uv pip install -e ".[dev]"
+          uv pip install -e ".[doc]"
           uv pip install pyinstaller
 
       - name: Build HOARD CLI executable
@@ -182,7 +182,7 @@ jobs:
       - name: Install project and PyInstaller
         shell: pwsh
         run: |
-          uv pip install -e ".[dev]"
+          uv pip install -e ".[doc]"
           uv pip install pyinstaller
 
       - name: Build HOARD CLI executable
