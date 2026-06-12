@@ -28,12 +28,12 @@ import requests
 import yaml
 
 from hoard.config import Config
+from hoard.helpers import OLLAMA_BASE_URL
 
 logger = logging.getLogger(__name__)
 
 # ── Constants ──────────────────────────────────────────────────────────────
 
-OLLAMA_BASE_URL = "http://localhost:11434"
 DEFAULT_MODEL = "tripolskypetr/gemma4-uncensored-aggressive:latest"
 DEFAULT_TEMPERATURE = 0.1
 DEFAULT_TIMEOUT = 120  # 2 minutes per section

@@ -20,7 +20,6 @@ license: MIT
 from __future__ import annotations
 
 import base64
-import gc
 import json
 import logging
 import re
@@ -33,12 +32,12 @@ import requests
 from PIL import Image
 
 from hoard.config import Config
+from hoard.helpers import OLLAMA_BASE_URL, evict_ollama_model
 
 logger = logging.getLogger(__name__)
 
 # ── Constants ───────────────────────────────────────────────────────────────
 
-OLLAMA_BASE_URL = "http://localhost:11434"
 QWEN_VL_MODEL = "qwen3-vl:8b"
 GLM_OCR_MODEL = "glm-ocr:latest"  # Fast alternative: 2.2 GB, ~30s per image
 VL_TIMEOUT = 120
@@ -214,19 +213,6 @@ def _crosscheck_photo(
     return CrossCheckResult(
         matching_contexts=[f"[{n}]" for n in sorted(set(ctx_nums))],
     )
-
-
-def _evict_ollama_model(model_name: str) -> None:
-    """Force-unload a model from Ollama VRAM."""
-    try:
-        requests.post(
-            f"{OLLAMA_BASE_URL}/api/generate",
-            json={"model": model_name, "prompt": "", "keep_alive": 0},
-            timeout=5,
-        )
-    except Exception:
-        pass
-    gc.collect()
 
 
 # ── Image Utilities ─────────────────────────────────────────────────────────
@@ -669,7 +655,7 @@ def run_phase2(config: Config) -> dict[str, Any]:
                 logger.info(f"  ✗ SVG failed for {img_path.name}")
 
     # Evict GLM-OCR from VRAM
-    _evict_ollama_model(GLM_OCR_MODEL)
+    evict_ollama_model(GLM_OCR_MODEL)
 
     duration_ms = int((time.time() - start_time) * 1000)
 

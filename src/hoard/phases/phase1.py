@@ -25,7 +25,6 @@ used_by: hoard.cli.run  → orchestrator
 from __future__ import annotations
 
 import base64
-import gc
 import json
 import logging
 import time
@@ -40,6 +39,7 @@ from docling.document_converter import DocumentConverter
 from pydantic import BaseModel, Field
 
 from hoard.config import Config
+from hoard.helpers import OLLAMA_BASE_URL, evict_ollama_model
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +53,6 @@ except ImportError:
 
 # ── Constants ──────────────────────────────────────────────────────────────
 
-OLLAMA_BASE_URL = "http://localhost:11434"
 GLM_OCR_MODEL = "glm-ocr:latest"
 QWEN_VL_FALLBACK = "qwen3-vl:8b"  # Fallback for degraded documents
 
@@ -244,19 +243,6 @@ def _call_vlm_fallback(image_bytes: bytes, system_prompt: str) -> dict[str, Any]
         raise
 
 
-def _evict_ollama_model(model_name: str) -> None:
-    """Force-unload an Ollama model from VRAM using keep_alive=0."""
-    try:
-        requests.post(
-            f"{OLLAMA_BASE_URL}/api/generate",
-            json={"model": model_name, "prompt": "", "keep_alive": 0},
-            timeout=5,
-        )
-    except Exception:
-        pass
-    gc.collect()
-
-
 # ── Checkbox Post-Processing ─────────────────────────────────────────────────
 
 
@@ -395,7 +381,7 @@ def _process_context_sheet(
                 continue
             logger.warning(f"GLM-OCR failed after 2 attempts, trying fallback: {e}")
             # Evict GLM-OCR, load fallback
-            _evict_ollama_model(GLM_OCR_MODEL)
+            evict_ollama_model(GLM_OCR_MODEL)
             try:
                 result = _call_vlm_fallback(
                     image_bytes=image_bytes,
@@ -409,13 +395,15 @@ def _process_context_sheet(
     return None
 
 
-def _process_catalogue_with_docling(file_path: Path) -> dict[str, Any] | None:
+def _process_catalogue_with_docling(file_path: Path, converter: Any = None) -> dict[str, Any] | None:
     """Process a typed finds catalogue or typed document using Docling.
 
     Docling handles PDF, DOCX, TXT, and image files with layout-aware parsing.
+    Accepts an optional pre-created converter to reuse across multiple files.
     """
     try:
-        converter = DocumentConverter()
+        if converter is None:
+            converter = DocumentConverter()
         result = converter.convert(str(file_path))
 
         # Extract tables as Markdown/JSON
@@ -542,11 +530,12 @@ def run_phase1(config: Config) -> dict[str, Any]:
                 failed_count += 1
 
         # Evict GLM-OCR from VRAM after batch
-        _evict_ollama_model(GLM_OCR_MODEL)
+        evict_ollama_model(GLM_OCR_MODEL)
 
     # ── Route 2: Finds Catalogues (Docling) ──
     if catalogues:
         logger.info(f"Processing {len(catalogues)} catalogue(s) via Docling")
+        docling_converter = DocumentConverter()  # Create once, reuse across files
         for entry in catalogues:
             src = _resolve_src(entry["path"])
             if src is None:
@@ -572,10 +561,10 @@ def run_phase1(config: Config) -> dict[str, Any]:
                     }
                 except Exception as e:
                     logger.error(f"  ✗ {src.name} — pandas failed: {e}")
-                    result = _process_catalogue_with_docling(src)
+                    result = _process_catalogue_with_docling(src, docling_converter)
             else:
                 # PDF/Image — use Docling with vision model
-                result = _process_catalogue_with_docling(src)
+                result = _process_catalogue_with_docling(src, docling_converter)
 
             if result:
                 out_path = output_dir / f"{src.stem}.json"

@@ -200,13 +200,19 @@ class GoogleProvider:
         except (IndexError, KeyError):
             content = ""
 
-        # Gemini doesn't return token counts in the same format
-        # Use promptFeedback if available
+        # Extract token usage from Gemini's usageMetadata
+        usage_meta = data.get("usageMetadata", {})
+        prompt_tokens = usage_meta.get("promptTokenCount", 0)
+        completion_tokens = usage_meta.get("candidatesTokenCount", 0)
+        total_tokens = usage_meta.get("totalTokenCount", prompt_tokens + completion_tokens)
         usage = TokenUsage(
-            prompt_tokens=0,
-            completion_tokens=0,
-            total_tokens=0,
-            estimated_cost_usd=0.0,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            total_tokens=total_tokens,
+            estimated_cost_usd=estimate_cost(
+                self.provider_name, self.model_name,
+                prompt_tokens, completion_tokens,
+            ),
         )
 
         return InferenceResponse(

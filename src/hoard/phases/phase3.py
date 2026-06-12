@@ -27,12 +27,12 @@ from typing import Any
 import requests
 
 from hoard.config import Config
+from hoard.helpers import load_json_safe, find_json_files, OLLAMA_BASE_URL
 
 logger = logging.getLogger(__name__)
 
 # ── Constants ──────────────────────────────────────────────────────────────
 
-OLLAMA_BASE_URL = "http://localhost:11434"
 DEFAULT_MODEL = "huihui_ai/qwen3.5-abliterated:4B"
 DEFAULT_TEMPERATURE = 0.3
 DEFAULT_TIMEOUT = 300  # 5 minutes for drafting
@@ -62,21 +62,7 @@ SYSTEM_PROMPT = """You are an expert commercial archaeologist and grey literatur
 # ── Context Assembly ────────────────────────────────────────────────────────
 
 
-def _load_json_safe(path: Path) -> dict[str, Any]:
-    """Load JSON file, returning empty dict if missing or corrupt."""
-    try:
-        if path.exists() and path.suffix == ".json":
-            return json.loads(path.read_text())
-    except (json.JSONDecodeError, OSError):
-        pass
-    return {}
 
-
-def _find_json_files(directory: Path, pattern: str = "*.json") -> list[Path]:
-    """Find JSON files in a directory, sorted by name."""
-    if not directory.is_dir():
-        return []
-    return sorted(directory.glob(pattern))
 
 
 def _render_site_metadata(config: Config) -> str:
@@ -92,13 +78,13 @@ def _render_site_metadata(config: Config) -> str:
 
 def _render_context_summary(digitised_dir: Path) -> str:
     """Render a condensed context sheet summary table from Phase 1 JSON."""
-    context_files = _find_json_files(digitised_dir)
+    context_files = find_json_files(digitised_dir)
     if not context_files:
         return "*No context data available.*\n"
 
     rows: list[list[str]] = []
     for ctx_file in context_files:
-        data = _load_json_safe(ctx_file)
+        data = load_json_safe(ctx_file)
         ctx_num = data.get("context_number", str(ctx_file.stem))
         ctx_type = data.get("type", "")
         description = data.get("description", "")[:120]
@@ -124,12 +110,12 @@ def _render_context_summary(digitised_dir: Path) -> str:
 
 def _render_harris_relationships(digitised_dir: Path) -> str:
     """Render stratigraphic relationships as a text summary."""
-    context_files = _find_json_files(digitised_dir)
+    context_files = find_json_files(digitised_dir)
     relationships: list[str] = []
     relation_count = 0
 
     for ctx_file in context_files:
-        data = _load_json_safe(ctx_file)
+        data = load_json_safe(ctx_file)
         ctx_num = data.get("context_number", str(ctx_file.stem))
 
         cut_by = data.get("cut_by", [])
@@ -166,12 +152,12 @@ def _render_harris_relationships(digitised_dir: Path) -> str:
 
 def _render_finds_summary(digitised_dir: Path) -> str:
     """Render finds catalogue summary from Phase 1 JSON."""
-    context_files = _find_json_files(digitised_dir)
+    context_files = find_json_files(digitised_dir)
     all_finds: list[list[str]] = []
     total_finds = 0
 
     for ctx_file in context_files:
-        data = _load_json_safe(ctx_file)
+        data = load_json_safe(ctx_file)
         ctx_num = data.get("context_number", str(ctx_file.stem))
         finds = data.get("finds", [])
         for find in finds:
@@ -201,11 +187,11 @@ def _render_finds_summary(digitised_dir: Path) -> str:
 
 def _render_sample_results(digitised_dir: Path) -> str:
     """Render environmental/sample results from Phase 1 JSON."""
-    context_files = _find_json_files(digitised_dir)
+    context_files = find_json_files(digitised_dir)
     all_samples: list[list[str]] = []
 
     for ctx_file in context_files:
-        data = _load_json_safe(ctx_file)
+        data = load_json_safe(ctx_file)
         ctx_num = data.get("context_number", str(ctx_file.stem))
         samples = data.get("samples", [])
         for sample in samples:
@@ -232,13 +218,13 @@ def _render_sample_results(digitised_dir: Path) -> str:
 
 def _render_photo_captions(spatial_dir: Path) -> str:
     """Render photo captions and annotations from Phase 2 outputs."""
-    photo_files = _find_json_files(spatial_dir)
+    photo_files = find_json_files(spatial_dir)
     if not photo_files:
         return "*No photo data available.*\n"
 
     captions: list[str] = ["## Photo Captions & Annotations", ""]
     for photo_file in photo_files:
-        data = _load_json_safe(photo_file)
+        data = load_json_safe(photo_file)
         source = data.get("source_file", photo_file.stem)
         caption = data.get("caption", "")
         grounding = data.get("grounding", [])
@@ -459,8 +445,8 @@ def _group_contexts_by_period(digitised_dir: Path) -> dict[str, list[dict[str, A
     Returns dict mapping normalised period name → list of context dicts.
     """
     groups: dict[str, list[dict[str, Any]]] = {}
-    for f in _find_json_files(digitised_dir):
-        data = _load_json_safe(f)
+    for f in find_json_files(digitised_dir):
+        data = load_json_safe(f)
         if not data or not data.get("context_number"):
             continue
         period = data.get("period", "undated").lower().strip()
@@ -703,8 +689,8 @@ def run_phase3(config: Config, model: str = DEFAULT_MODEL) -> dict[str, Any]:
 
     # Step 2: Collect context numbers for review triggers
     context_numbers: set[str] = set()
-    for f in _find_json_files(config.digitised_dir):
-        data = _load_json_safe(f)
+    for f in find_json_files(config.digitised_dir):
+        data = load_json_safe(f)
         ctx = data.get("context_number")
         if ctx:
             context_numbers.add(ctx.strip("[]"))
@@ -854,6 +840,9 @@ def _run_phase3_chunked(
     if overview_result.get("reasoning"):
         all_reasoning.append(f"--- Overview ---\n{overview_result['reasoning']}")
 
+    # Track token usage across all chunks
+    total_tokens = overview_result.get("eval_count", 0)
+
     # Draft each period's narrative
     period_drafts: list[tuple[str, str]] = []
     for period in sorted_periods:
@@ -872,6 +861,7 @@ def _run_phase3_chunked(
         )
         period_text = period_result.get("response", "")
         period_drafts.append((period, period_text))
+        total_tokens += period_result.get("eval_count", 0)
 
         if period_result.get("reasoning"):
             all_reasoning.append(
@@ -899,13 +889,6 @@ def _run_phase3_chunked(
         reasoning_path = config.logs_dir / f"phase3_reasoning_{timestamp}.txt"
         reasoning_path.write_text("\n\n".join(all_reasoning))
         logger.info(f"Reasoning chains written to {reasoning_path}")
-
-    total_tokens = (
-        overview_result.get("eval_count", 0)
-        + sum(p[1].get("eval_count", 0) for p in [
-            (None, overview_result)
-        ])
-    )
 
     return {
         "status": "complete",

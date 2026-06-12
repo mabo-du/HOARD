@@ -444,7 +444,7 @@ class ProviderRouter:
 # ── Factory ──────────────────────────────────────────────────────────────────
 
 
-_router_instance: ProviderRouter | None = None
+_router_instances: dict[str, ProviderRouter] = {}
 
 
 def get_router(
@@ -453,7 +453,10 @@ def get_router(
     interactive: bool = False,
     force_reinit: bool = False,
 ) -> ProviderRouter:
-    """Get or create the singleton ProviderRouter instance.
+    """Get or create a ProviderRouter instance scoped to a project.
+
+    Each project_id gets its own instance so audit logs are correctly scoped.
+    An empty project_id uses a shared default instance.
 
     Args:
         config_path: Path to config file. Defaults to ~/.config/hoard/config.yaml.
@@ -464,8 +467,11 @@ def get_router(
     Returns:
         Initialised ProviderRouter.
     """
-    global _router_instance
-    if _router_instance is None or force_reinit:
-        _router_instance = ProviderRouter(config_path=config_path, project_id=project_id)
-        _router_instance.initialise(interactive=interactive)
-    return _router_instance
+    global _router_instances
+    if force_reinit:
+        _router_instances.pop(project_id, None)
+    if project_id not in _router_instances:
+        router = ProviderRouter(config_path=config_path, project_id=project_id)
+        router.initialise(interactive=interactive)
+        _router_instances[project_id] = router
+    return _router_instances[project_id]

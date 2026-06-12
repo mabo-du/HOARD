@@ -411,7 +411,12 @@ def run_phase0(config: Config) -> dict[str, Any]:
     for entry in entries:
         if entry.type != "finds_catalogue":
             continue
+        # entry.path may be relative to input_dir or assets_dir (if normalised)
         src_path = input_dir / entry.path
+        if not src_path.exists():
+            alt_path = assets_dir / entry.path
+            if alt_path.exists():
+                src_path = alt_path
         if src_path.suffix.lower() == ".csv":
             valid, issues = _validate_csv_finds(src_path)
             if not valid:
@@ -437,7 +442,7 @@ def run_phase0(config: Config) -> dict[str, Any]:
         mandatory_check == "FAIL"  # Only halt on missing context sheets
         or (
             len(context_sheets) > 0
-            and len(flagged_contexts) / max(len(context_sheets), 1) > 0.99  # 90% degraded = bad batch
+            and len(flagged_contexts) / max(len(context_sheets), 1) > 0.9  # >90% degraded = bad batch
         )
     )
 

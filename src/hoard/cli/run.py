@@ -226,7 +226,13 @@ def run_pipeline(config: Config, benchmark: bool = False) -> None:
     # Phase 5 (rule-based, available now)
     if not ws.state.is_phase_complete(5):
         console.print("[blue]→[/] Phase 5: Assembly & Export")
-        result = run_phase5(config)
+        try:
+            result = run_phase5(config)
+        except RuntimeError as e:
+            console.print(f"[red]✗[/] Phase 5 failed: {e}")
+            console.print("  Check disk space and write permissions.")
+            ws.state.fail_phase(5, str(e))
+            return
         ws.state.complete_phase(5, f"Report exported: {result.get('export_paths', {}).get('docx', 'N/A')}")
         console.print("[green]✓[/] Phase 5 complete.")
         for fmt, path in result.get("export_paths", {}).items():
@@ -255,7 +261,16 @@ def run_single_phase(config: Config, phase: int) -> None:
 
     name, fn = phases[phase]
     console.print(f"[blue]→[/] Phase {phase}: {name}")
-    result = fn()
+    try:
+        result = fn()
+    except RuntimeError as e:
+        console.print(f"[red]✗[/] Phase {phase} failed: {e}")
+        ws.state.fail_phase(phase, str(e))
+        return
+    except Exception as e:
+        console.print(f"[red]✗[/] Phase {phase} failed with unexpected error: {e}")
+        ws.state.fail_phase(phase, str(e))
+        return
 
     if isinstance(result, dict) and result.get("halt"):
         console.print("[red]✗[/] Pipeline halted by Phase 0 checks.")
@@ -278,7 +293,7 @@ def _print_halt_reasons(manifest: dict) -> None:
     flagged = [f for f in context_sheets if f.get("quality", {}).get("flag")]
     if flagged and len(context_sheets) > 0:
         pct = len(flagged) / len(context_sheets) * 100
-        console.print(f"  [red]{pct:.0f}% of context sheets flagged (threshold: 30%)[/]")
+        console.print(f"  [red]{pct:.0f}% of context sheets flagged (threshold: 90%)[/]")
 
     issues = manifest.get("finds_validation_issues", [])
     if issues:

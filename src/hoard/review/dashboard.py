@@ -159,11 +159,17 @@ def load_flags_from_manifest(manifest_source: Path | dict) -> list[ReviewItem]:
 
 
 def _describe_quality_flag(flag: str, blur: float, skew: float) -> str:
-    """Produce a human-readable quality issue description."""
+    """Produce a human-readable quality issue description.
+
+    Thresholds mirrored from phase0.py constants:
+      BLUR_LAPLACIAN_VARIANCE_THRESHOLD = 10.0
+      SKEW_ANGLE_THRESHOLD = 45.0
+      EXPOSURE_MEAN_THRESHOLD = 15
+    """
     descriptions = {
-        "BLUR_LOW": f"Image blur score {blur:.1f} (threshold: 80) — text may be unreadable",
-        "SKEW_HIGH": f"Image skew {skew:.1f}° (threshold: 15°) — may need deskewing",
-        "EXPOSURE_LOW": "Image underexposed (mean pixel value < 40) — details may be lost",
+        "BLUR_LOW": f"Image blur score {blur:.1f} (threshold: 10.0) — text may be unreadable",
+        "SKEW_HIGH": f"Image skew {skew:.1f}° (threshold: 45°) — may need deskewing",
+        "EXPOSURE_LOW": "Image underexposed (mean pixel value < 15) — details may be lost",
     }
     return descriptions.get(flag, f"Quality flag: {flag}")
 

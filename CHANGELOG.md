@@ -6,6 +6,50 @@ All notable changes to HOARD are documented here. This project follows
 
 ## [Unreleased]
 
+## [0.2.1] — 2026-06-12
+
+### Fixed
+
+- **Phase 3 chunked token counting** — `total_tokens` now correctly sums
+  `eval_count` from the overview and all per-period LLM calls. Previously the
+  calculation only counted the overview result twice and discarded all
+  per-period token data.
+- **Phase 0 halt threshold** — quality gate threshold corrected from 99% (which
+  effectively never fired) to 90%, matching both the code comment and documented
+  intent. The user-facing halt message now also displays the correct threshold.
+- **Phase 5 error handling** — export phase now wrapped in `try/except
+  RuntimeError` matching the pattern used by phases 1-4, preventing pipeline
+  crash on export failure. `run_single_phase()` also gained error handling for
+  all phases.
+- **Google Gemini token tracking** — provider now extracts `usageMetadata`
+  (`promptTokenCount`, `candidatesTokenCount`, `totalTokenCount`) from Gemini
+  API responses instead of returning zero tokens.
+- **ProviderRouter project scoping** — singleton factory now maintains
+  per-project instances so audit logs are correctly scoped. Previously all
+  projects shared a single instance with the first project's ID.
+- **Finds catalogue path resolution** — Phase 0 now falls back to `assets_dir`
+  when a finds catalogue path relative to `input_dir` is not found, fixing
+  silent validation skip for catalogues normalised from PDFs.
+- **Review dashboard thresholds** — quality flag descriptions now display the
+  correct threshold values (blur <10.0, skew >45°, exposure <15) that match
+  the actual constants in Phase 0.
+- **TEI-XML export** — now converts Markdown structure (`##` → `<div
+  type="section"><head>`, blank-line blocks → `<p>`) instead of cramming
+  everything into a single escaped paragraph.
+- **Bibliography regex** — now captures `et al.`, multi-author (`&`/`and`),
+  and hyphenated surname citation patterns.
+
+### Changed
+
+- **Shared utility consolidation** — `load_json_safe`, `find_json_files`, and
+  `evict_ollama_model` extracted from duplicate phase-level definitions into
+  new `hoard.helpers` module. `OLLAMA_BASE_URL` now defined once in helpers
+  instead of four separate hardcoded copies across phases 1-4.
+- **Docling converter reuse** — `DocumentConverter()` is now instantiated once
+  before the catalogue processing loop instead of per-file, reducing overhead.
+- **models package docstring** — updated from stale placeholder referencing
+  non-existent `ModelLoader`/`ModelRouter` classes to accurate status.
+
 ## [0.2.0] — 2026-06-09
 
 ### Added
@@ -100,6 +144,7 @@ All notable changes to HOARD are documented here. This project follows
 - **E2E test datasets** — Pinn Brook Park (49 contexts, CC-BY 4.0), A14
   Cambridge to Huntingdon (99 contexts), Gallows Hill (50-70 contexts).
 
-[Unreleased]: https://github.com/mabo-du/HOARD/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/mabo-du/HOARD/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/mabo-du/HOARD/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/mabo-du/HOARD/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/mabo-du/HOARD/releases/tag/v0.1.0

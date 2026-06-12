@@ -24,6 +24,7 @@ from pathlib import Path
 from typing import Any
 
 from hoard.config import Config
+from hoard.helpers import load_json_safe, find_json_files
 from hoard.export.docx_writer import write_docx
 from hoard.export.pdf_writer import write_pdf
 from hoard.export.photo_plates import write_photo_plates
@@ -31,21 +32,7 @@ from hoard.export.photo_plates import write_photo_plates
 # ── Helpers ─────────────────────────────────────────────────────────────────
 
 
-def _load_json_safe(path: Path) -> dict[str, Any]:
-    """Load JSON file, returning empty dict if missing or corrupt."""
-    try:
-        if path.exists():
-            return json.loads(path.read_text())
-    except (json.JSONDecodeError, OSError):
-        pass
-    return {}
 
-
-def _find_json_files(directory: Path, pattern: str = "*.json") -> list[Path]:
-    """Find JSON files in a directory, sorted by name."""
-    if not directory.is_dir():
-        return []
-    return sorted(directory.glob(pattern))
 
 
 # ── Figure Resolution ────────────────────────────────────────────────────────
@@ -76,13 +63,13 @@ def _resolve_figures(draft_text: str, assets_dir: Path, refined_dir: Path) -> st
 
 def _generate_context_register(digitised_dir: Path) -> str:
     """Generate Context Register appendix from Phase 1 JSON files."""
-    context_files = _find_json_files(digitised_dir)
+    context_files = find_json_files(digitised_dir)
     if not context_files:
         return "*No context data available.*\n\n"
 
     rows: list[list[str]] = []
     for ctx_file in context_files:
-        data = _load_json_safe(ctx_file)
+        data = load_json_safe(ctx_file)
         ctx_num = data.get("context_number", str(ctx_file.stem))
         ctx_type = data.get("type", "")
         description = data.get("description", "")[:80]
@@ -107,13 +94,13 @@ def _generate_context_register(digitised_dir: Path) -> str:
 
 def _generate_finds_concordance(digitised_dir: Path) -> str:
     """Generate Finds Concordance appendix from Phase 1 JSON files."""
-    context_files = _find_json_files(digitised_dir)
+    context_files = find_json_files(digitised_dir)
     if not context_files:
         return "*No finds data available.*\n\n"
 
     rows: list[list[str]] = []
     for ctx_file in context_files:
-        data = _load_json_safe(ctx_file)
+        data = load_json_safe(ctx_file)
         ctx_num = data.get("context_number", str(ctx_file.stem))
         finds = data.get("finds", [])
         for find in finds:
@@ -139,13 +126,13 @@ def _generate_finds_concordance(digitised_dir: Path) -> str:
 
 def _generate_sample_register(digitised_dir: Path) -> str:
     """Generate Sample Register appendix from Phase 1 JSON files."""
-    context_files = _find_json_files(digitised_dir)
+    context_files = find_json_files(digitised_dir)
     if not context_files:
         return "*No sample data available.*\n\n"
 
     rows: list[list[str]] = []
     for ctx_file in context_files:
-        data = _load_json_safe(ctx_file)
+        data = load_json_safe(ctx_file)
         ctx_num = data.get("context_number", str(ctx_file.stem))
         samples = data.get("samples", [])
         for sample in samples:
@@ -197,13 +184,17 @@ def _generate_harris_matrix_svg(context_jsons: list[dict[str, Any]]) -> str | No
 def _generate_bibliography(draft_text: str) -> str:
     """Extract citations from draft text and generate a bibliography.
 
-    Supports author_date style: (Author, year) or (Author year)
+    Supports author-date style: (Author, year), (Author year), (Author et al., year),
+    (Author, Author & Author, year), and (Author, YYYY: page).
     """
     citations: dict[str, dict[str, Any]] = {}
-    # Find citation patterns: (Surname, YYYY) or (Surname YYYY)
+    # Find citation patterns
     patterns = [
-        r"\(([A-Z][a-zéèêëàâäùûüôöîïç]+(?: et al\.)?),?\s+(\d{4}[a-z]?)\)",
-        r"\(([A-Z][a-zéèêëàâäùûüôöîïç]+)\s+(\d{4}[a-z]?)\)",
+        # (Surname, YYYY) or (Surname et al., YYYY) or (Surname, Surname & Surname, YYYY)
+        r"\(([A-Z][A-Za-zéèêëàâäùûüôöîïç\-']+(?:(?:\s+(?:&|and)\s+[A-Z][A-Za-zéèêëàâäùûüôöîïç\-']+))*"
+        r"(?:\s+et\s+al\.?)?),\s+(\d{4}[a-z]?)\)",
+        # (Surname YYYY) or (Surname YYYY: page)
+        r"\(([A-Z][A-Za-zéèêëàâäùûüôöîïç\-']+)\s+(\d{4}[a-z]?)\)",
     ]
 
     for pattern in patterns:
@@ -248,7 +239,7 @@ def assemble_report(
     dig_dir = digitised_dir or config.digitised_dir
 
     # Step 1: Load refined sections
-    section_files = _find_json_files(refined_dir, "*.md")
+    section_files = find_json_files(refined_dir, "*.md")
     section_text = ""
     if section_files:
         section_text = section_files[-1].read_text()  # Most recent refined file
@@ -273,8 +264,8 @@ def assemble_report(
 
     # Step 4: Collect context JSON for Harris Matrix
     context_jsons: list[dict[str, Any]] = []
-    for f in _find_json_files(dig_dir):
-        data = _load_json_safe(f)
+    for f in find_json_files(dig_dir):
+        data = load_json_safe(f)
         if data.get("context_number"):
             context_jsons.append(data)
 
@@ -471,11 +462,43 @@ def _get_jurisdiction_label(config: Config, template_yaml: dict[str, Any] | None
 
 
 def _generate_tei_xml(md_text: str, output_path: Path, project_name: str) -> None:
-    """Generate a lightweight TEI-XML wrapper from the Markdown body."""
+    """Generate a lightweight TEI-XML wrapper from the Markdown body.
+
+    Converts basic Markdown structure: ## → div type="section",
+    blank-line-delimited blocks → paragraphs.
+    """
     import html as html_mod
+    import re as regex
 
     date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    body_html = html_mod.escape(md_text[:50000])
+
+    # Convert Markdown to TEI structural elements
+    body_parts: list[str] = []
+    in_section = False
+
+    for line in md_text[:50000].split("\n"):
+        # Section headers
+        if line.startswith("## "):
+            if in_section:
+                body_parts.append("</div>")
+            section_title = html_mod.escape(line[3:].strip())
+            body_parts.append(f'<div type="section"><head>{section_title}</head>')
+            in_section = True
+        elif line.startswith("# "):
+            if in_section:
+                body_parts.append("</div>")
+            heading = html_mod.escape(line[2:].strip())
+            body_parts.append(f'<head>{heading}</head>')
+            in_section = False
+        elif line.strip():
+            body_parts.append(f"<p>{html_mod.escape(line.strip())}</p>")
+        elif body_parts and not body_parts[-1].startswith("<p>"):
+            continue  # skip redundant blank lines between structural elements
+
+    if in_section:
+        body_parts.append("</div>")
+
+    body_xml = "\n      ".join(body_parts)
 
     tei = f"""<?xml version="1.0" encoding="UTF-8"?>
 <?xml-model href="http://www.tei-c.org/release/xml/tei/custom/schema/relaxng/tei_all.rng" type="application/xml" schematypens="http://relaxng.org/ns/structure/1.0"?>
@@ -500,7 +523,7 @@ def _generate_tei_xml(md_text: str, output_path: Path, project_name: str) -> Non
   </teiHeader>
   <text>
     <body>
-      <p>{body_html}</p>
+      {body_xml}
     </body>
   </text>
 </TEI>"""
@@ -525,7 +548,7 @@ def _create_archive_zip(config: Config, zip_path: Path, md_path: Path) -> None:
                 zf.write(f, f"refined/{f.name}")
 
             # Add digitised data
-            for f in _find_json_files(config.digitised_dir):
+            for f in find_json_files(config.digitised_dir):
                 zf.write(f, f"digitised/{f.name}")
 
             # Add spatial data
