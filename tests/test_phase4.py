@@ -14,8 +14,6 @@ from __future__ import annotations
 import tempfile
 from pathlib import Path
 
-import pytest
-import yaml
 
 from hoard.phases.phase4 import (
     _build_compliance_prompt,

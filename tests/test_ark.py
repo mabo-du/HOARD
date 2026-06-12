@@ -17,7 +17,6 @@ from hoard.ark.loader import _discover_ark_files, _parse_csv, _parse_json
 from hoard.ark.mapping import (
     ARK_CONTEXT_FIELDS,
     ARK_FINDS_FIELDS,
-    ARK_PHOTOS_FIELDS,
     _build_lookup,
 )
 from hoard.ark.semantic_mapper import ArkSemanticMapper, map_headers_semantic
@@ -124,11 +123,11 @@ def ark_input_dir(
 @pytest.fixture
 def ark_minimal_dir(tmp_path: Path) -> Path:
     """Directory with minimal ARK exports (just context + finds)."""
-    ctx = _write_csv(tmp_path / "context.csv", [
+    _ctx = _write_csv(tmp_path / "context.csv", [
         ["context_id", "trench", "description"],
         ["3001", "T1", "Test context"],
     ])
-    finds = _write_csv(tmp_path / "finds.csv", [
+    _finds = _write_csv(tmp_path / "finds.csv", [
         ["context_id", "object_type", "material", "quantity"],
         ["3001", "Pottery", "Pottery", "5"],
     ])
@@ -390,7 +389,7 @@ class TestImportArkExport:
 
     def test_updates_pipeline_state(self, ark_minimal_dir: Path) -> None:
         cfg = _make_config(ark_minimal_dir)
-        result = import_ark_export(cfg)
+        import_ark_export(cfg)
         state_path = cfg.project_dir / "pipeline_state.json"
         assert state_path.exists()
         state = json.loads(state_path.read_text())

@@ -13,10 +13,8 @@ agent:   deepseek-v4-flash | 2026-05-09 | s_20260509_001 | Phase 5 tests
 from __future__ import annotations
 
 import json
-import shutil
 from pathlib import Path
 
-import pytest
 
 from hoard.config import Config
 from hoard.phases.phase5 import (

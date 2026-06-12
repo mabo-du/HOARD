@@ -12,7 +12,6 @@ rules:   Must not require GPU or real pipeline output.
 from __future__ import annotations
 
 import json
-import tempfile
 from pathlib import Path
 
 import pytest

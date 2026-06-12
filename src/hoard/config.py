@@ -1,6 +1,6 @@
 """config.py — Project configuration loading and management.
 
-Loads project config from erd_workspace/{project_id}/config.yaml or
+Loads project config from hoard_workspace/{project_id}/config.yaml or
 CLI flags. Provides a single Config dataclass used by all phases.
 
 exports: Config, load_config, init_project_config
@@ -69,7 +69,7 @@ class Config:
         return self.project_dir / "pipeline_state.json"
 
 
-def load_config(project_id: str, workspace_root: Path = Path("./erd_workspace")) -> Config | None:
+def load_config(project_id: str, workspace_root: Path = Path("./hoard_workspace")) -> Config | None:
     """Load a project config from its workspace directory.
 
     Reads the YAML file written by init_project_config() and returns

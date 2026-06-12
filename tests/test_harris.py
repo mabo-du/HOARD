@@ -11,7 +11,6 @@ rules:   Must not require graphviz or any external renderer.
 from __future__ import annotations
 
 import json
-import tempfile
 from pathlib import Path
 
 import pytest

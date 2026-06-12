@@ -16,13 +16,10 @@ import json
 import tempfile
 from pathlib import Path
 
-import pytest
 
 from hoard.config import Config
 from hoard.phases.phase0 import (
-    FileEntry,
     QualityFlags,
-    _assess_quality,
     _classify_image,
     _file_hash,
     _validate_csv_finds,
@@ -207,7 +204,7 @@ class TestRunPhase0:
         """Phase 0 on an empty directory should produce an empty manifest."""
         input_dir = tmp_path / "input"
         input_dir.mkdir()
-        workspace = tmp_path / "erd_workspace"
+        workspace = tmp_path / "hoard_workspace"
         workspace.mkdir()
 
         config = Config(
@@ -232,7 +229,7 @@ class TestRunPhase0:
             ["context", "object_type", "quantity", "period"],
             ["101", "pottery", "5", "Roman"],
         ])
-        workspace = tmp_path / "erd_workspace"
+        workspace = tmp_path / "hoard_workspace"
 
         config = Config(
             project_id="test_single",
@@ -256,7 +253,7 @@ class TestRunPhase0:
             ["context", "object_type", "quantity", "period"],
             ["101", "pottery", "5", "Roman"],
         ])
-        workspace = tmp_path / "erd_workspace"
+        workspace = tmp_path / "hoard_workspace"
 
         config = Config(
             project_id="test_schema",
@@ -296,7 +293,7 @@ class TestRunPhase0:
             ["col1", "col2", "col3"],
             ["a", "b", "c"],
         ])
-        workspace = tmp_path / "erd_workspace"
+        workspace = tmp_path / "hoard_workspace"
 
         config = Config(
             project_id="test_bad_csv",

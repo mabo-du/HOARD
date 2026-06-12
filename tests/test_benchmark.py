@@ -11,10 +11,9 @@ agent:   deepseek-v4-pro | 2026-05-25 | t044 | Benchmark module tests
 
 from __future__ import annotations
 
-import pytest
 
 from hoard.benchmark import VRAMProfiler, get_ollama_model_stats, get_ollama_timing
-from hoard.benchmark.vram_profiler import VramSnapshot, VramReport, _HAS_PYNVML
+from hoard.benchmark.vram_profiler import VramSnapshot, VramReport
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

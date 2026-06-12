@@ -1,7 +1,7 @@
 """hoard.phases — Pipeline phase implementations (Phase 0 through Phase 5).
 
 Each phase is an independent callable invoked by the CLI orchestrator.
-Phases communicate through the working directory (erd_workspace/{project_id}/).
+Phases communicate through the working directory (hoard_workspace/{project_id}/).
 Phases 0 and 5 are rule-based. Phases 1-4 require GPU model inference.
 
 exports: Phase0, Phase1, Phase2, Phase3, Phase4, Phase5  (callable classes)

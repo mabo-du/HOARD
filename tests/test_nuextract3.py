@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import json
 
-import pytest
 
 from hoard.extractors import NuExtract3Extractor, context_sheet_template, template_to_json
 from hoard.extractors.nuextract3 import NUEXTRACT_SYSTEM

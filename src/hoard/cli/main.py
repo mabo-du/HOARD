@@ -65,7 +65,7 @@ def init(
         help="Jurisdiction template code",
     ),
     output: str = typer.Option(
-        "./erd_workspace", "--output", "-o",
+        "./hoard_workspace", "--output", "-o",
         help="Working directory root",
     ),
     detect_hardware: bool = typer.Option(
@@ -73,7 +73,7 @@ def init(
         help="Auto-detect hardware and suggest model tier",
     ),
 ) -> None:
-    """Initialise a new ERD project."""
+    """Initialise a new HOARD project."""
     project_id = name.lower().replace(" ", "_").replace("'", "")
     cfg = init_project_config(
         project_id=project_id,
@@ -121,7 +121,7 @@ def run(
         None, "--from-phase", help="Run from this phase onward",
     ),
     workspace: str = typer.Option(
-        "./erd_workspace", "--workspace", "-w",
+        "./hoard_workspace", "--workspace", "-w",
         help="Working directory root",
     ),
 ) -> None:
@@ -154,7 +154,7 @@ def import_ark(
         help="Directory containing ARK export files (context.csv, finds.csv, etc.)",
     ),
     workspace: str = typer.Option(
-        "./erd_workspace", "--workspace", "-w",
+        "./hoard_workspace", "--workspace", "-w",
         help="Working directory root",
     ),
 ) -> None:
@@ -227,7 +227,7 @@ def import_ark(
 def review(
     project: str = typer.Option(..., "--project", "-p", help="Project ID"),
     workspace: str = typer.Option(
-        "./erd_workspace", "--workspace", "-w",
+        "./hoard_workspace", "--workspace", "-w",
         help="Working directory root",
     ),
     reset: bool = typer.Option(
@@ -271,7 +271,7 @@ def export(
         help="Output formats (comma-separated: docx, pdf, tei-xml, zip)",
     ),
     workspace: str = typer.Option(
-        "./erd_workspace", "--workspace", "-w",
+        "./hoard_workspace", "--workspace", "-w",
         help="Working directory root",
     ),
 ) -> None:

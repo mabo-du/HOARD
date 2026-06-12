@@ -1,6 +1,6 @@
 """workspace.py — Working directory management for the pipeline.
 
-Creates, validates, and cleans the erd_workspace/{project_id}/ directory
+Creates, validates, and cleans the hoard_workspace/{project_id}/ directory
 tree. Handles pipeline_state.json read/write for resumability.
 
 exports: Workspace, PipelineState
@@ -62,7 +62,7 @@ class PipelineState:
 
 
 class Workspace:
-    """Manages the erd_workspace directory tree for a project."""
+    """Manages the hoard_workspace directory tree for a project."""
 
     SUBDIRS = [
         "00_manifest",

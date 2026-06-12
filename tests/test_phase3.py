@@ -15,7 +15,6 @@ import json
 import tempfile
 from pathlib import Path
 
-import pytest
 
 from hoard.phases.phase3 import (
     _check_review_triggers,
