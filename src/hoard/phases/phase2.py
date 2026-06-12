@@ -88,7 +88,7 @@ def _call_qwen_vl(
     """
     b64_image = base64.b64encode(image_bytes).decode("utf-8")
 
-    payload = {
+    payload: dict[str, Any] = {
         "model": model,
         "prompt": f"{system_prompt}\n\n{user_prompt}",
         "images": [b64_image],
@@ -410,7 +410,7 @@ def process_svg_drawing(
 
     try:
         b64_image = base64.b64encode(image_bytes).decode("utf-8")
-        payload = {
+        payload: dict[str, Any] = {
             "model": GLM_OCR_MODEL,
             "prompt": f"{system}\n{user}".strip(),
             "images": [b64_image],

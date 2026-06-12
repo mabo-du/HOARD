@@ -175,7 +175,7 @@ def _call_glm_ocr(
 
     # Build request with image
     url = f"{OLLAMA_BASE_URL}/api/generate"
-    payload = {
+    payload: dict[str, Any] = {
         "model": GLM_OCR_MODEL,
         "prompt": prompt,
         "images": [b64_image],
@@ -210,7 +210,7 @@ def _call_vlm_fallback(image_bytes: bytes, system_prompt: str) -> dict[str, Any]
     b64_image = base64.b64encode(image_bytes).decode("utf-8")
 
     url = f"{OLLAMA_BASE_URL}/api/generate"
-    payload = {
+    payload: dict[str, Any] = {
         "model": QWEN_VL_FALLBACK,
         "prompt": system_prompt,
         "images": [b64_image],

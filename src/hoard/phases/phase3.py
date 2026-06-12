@@ -286,7 +286,7 @@ def _ollama_generate(
     if the model supports thinking/reasoning output.
     """
     url = f"{OLLAMA_BASE_URL}/api/generate"
-    payload = {
+    payload: dict[str, Any] = {
         "model": model,
         "system": system,
         "prompt": prompt,

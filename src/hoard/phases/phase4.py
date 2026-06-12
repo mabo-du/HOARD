@@ -118,7 +118,7 @@ def _ollama_generate(
 ) -> str:
     """Call Ollama's generate API. Returns response text."""
     url = f"{OLLAMA_BASE_URL}/api/generate"
-    payload = {
+    payload: dict[str, Any] = {
         "model": model,
         "system": system,
         "prompt": prompt,

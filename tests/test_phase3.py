@@ -20,9 +20,7 @@ import pytest
 from hoard.phases.phase3 import (
     _check_review_triggers,
     _extract_sections,
-    _find_json_files,
     _group_contexts_by_period,
-    _load_json_safe,
     _merge_chunked_drafts,
     _normalise_period,
     _render_context_summary,
@@ -33,10 +31,11 @@ from hoard.phases.phase3 import (
     _render_sample_results,
     _sort_periods,
 )
+from hoard.helpers import find_json_files, load_json_safe
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# _load_json_safe
+# load_json_safe
 # ═══════════════════════════════════════════════════════════════════════════════
 
 class TestLoadJsonSafe:
@@ -45,13 +44,13 @@ class TestLoadJsonSafe:
             json.dump({"key": "value"}, f)
             tmp = Path(f.name)
         try:
-            result = _load_json_safe(tmp)
+            result = load_json_safe(tmp)
             assert result == {"key": "value"}
         finally:
             tmp.unlink(missing_ok=True)
 
     def test_missing_file(self):
-        result = _load_json_safe(Path("/nonexistent/file.json"))
+        result = load_json_safe(Path("/nonexistent/file.json"))
         assert result == {}
 
     def test_corrupt_json(self):
@@ -59,7 +58,7 @@ class TestLoadJsonSafe:
             f.write("{not valid json")
             tmp = Path(f.name)
         try:
-            result = _load_json_safe(tmp)
+            result = load_json_safe(tmp)
             assert result == {}
         finally:
             tmp.unlink(missing_ok=True)
@@ -68,14 +67,14 @@ class TestLoadJsonSafe:
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             tmp = Path(f.name)
         try:
-            result = _load_json_safe(tmp)
+            result = load_json_safe(tmp)
             assert result == {}
         finally:
             tmp.unlink(missing_ok=True)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# _find_json_files
+# find_json_files
 # ═══════════════════════════════════════════════════════════════════════════════
 
 class TestFindJsonFiles:
@@ -85,14 +84,14 @@ class TestFindJsonFiles:
             (tmp / "b.json").write_text("{}")
             (tmp / "a.json").write_text("{}")
             (tmp / "c.json").write_text("{}")
-            result = _find_json_files(tmp)
+            result = find_json_files(tmp)
             assert len(result) == 3
             assert result[0].name == "a.json"
             assert result[1].name == "b.json"
             assert result[2].name == "c.json"
 
     def test_missing_dir(self):
-        result = _find_json_files(Path("/nonexistent"))
+        result = find_json_files(Path("/nonexistent"))
         assert result == []
 
     def test_non_json_ignored(self):
@@ -100,7 +99,7 @@ class TestFindJsonFiles:
             tmp = Path(d)
             (tmp / "a.json").write_text("{}")
             (tmp / "b.txt").write_text("text")
-            result = _find_json_files(tmp)
+            result = find_json_files(tmp)
             assert len(result) == 1
             assert result[0].name == "a.json"
 
@@ -109,7 +108,7 @@ class TestFindJsonFiles:
             tmp = Path(d)
             (tmp / "a.json").write_text("{}")
             (tmp / "b.md").write_text("# text")
-            result = _find_json_files(tmp, "*.md")
+            result = find_json_files(tmp, "*.md")
             assert len(result) == 1
             assert result[0].name == "b.md"
 

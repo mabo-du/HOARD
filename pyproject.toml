@@ -47,6 +47,9 @@ dev = [
     "pytest-cov>=5",
     "ruff>=0.4",
     "mypy>=1",
+    "docling>=2",
+    "numpy>=1.24",
+    "wand>=0.6",
 ]
 ark = [
     "sentence-transformers>=3",
