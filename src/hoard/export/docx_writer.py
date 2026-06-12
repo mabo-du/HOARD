@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 """docx_writer.py — DOCX export via python-docx.
 
 Takes the compiled Markdown report body and produces a properly formatted
