@@ -22,7 +22,7 @@ jobs:
           python-version: "3.11"
 
       - name: Build sdist + wheel
-        run: uvx build --outdir dist/
+        run: uvx --from build pyproject-build --outdir dist/
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4

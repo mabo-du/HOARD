@@ -20,7 +20,7 @@ jobs:
           python-version: "3.11"
 
       - name: Build distribution
-        run: uvx build --outdir dist/
+        run: uvx --from build pyproject-build --outdir dist/
 
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
