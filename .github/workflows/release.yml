@@ -271,11 +271,13 @@ jobs:
 
           EOF
 
-          # Append commit log since last tag
-          PREV_TAG=$(git describe --tags --abbrev=0 HEAD 2>/dev/null || echo "")
-          if [ -n "$PREV_TAG" ]; then
-            git log --oneline "${PREV_TAG}..HEAD" --no-decorate >> RELEASE_NOTES.md
-          fi
+          # Extract relevant CHANGELOG section for this version
+          VERSION_MARKER="## [${VERSION}]"
+          awk -v marker="$VERSION_MARKER" '
+            $0 ~ marker { found=1; next }
+            found && /^## \[/ { exit }
+            found { print }
+          ' CHANGELOG.md >> RELEASE_NOTES.md || echo "_See CHANGELOG.md for details._" >> RELEASE_NOTES.md
 
       - name: Create Release
         uses: softprops/action-gh-release@v2

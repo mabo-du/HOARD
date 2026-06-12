@@ -3,7 +3,8 @@
 **Heritage Observation And Report Drafter** — a fully local, multi-stage AI
 pipeline that converts archaeological field data into near-publication-ready
 grey literature reports. All 6 phases are implemented and E2E-verified.
-Zero API calls required; runs entirely on consumer hardware via Ollama.
+Runs locally via Ollama with optional cloud provider fallback (OpenAI,
+Anthropic, Google Gemini).
 
 ---
 
@@ -45,7 +46,7 @@ PDF/A-2b via WeasyPrint. No pandoc required.
 
 ```bash
 # From PyPI (recommended)
-pip install hoard
+pip install hoard-erd
 
 # From source
 git clone https://github.com/mabo-du/HOARD.git
@@ -546,7 +547,9 @@ heritage run --project stoneyfield_2026 --pipeline pipeline.yaml
 
 ## Multi-Provider AI
 
-HOARD supports **four AI backends** for GPU phases, selectable per phase:
+HOARD supports **four AI backends** for GPU phases, selectable per phase.
+All inference is routed through the `ProviderRouter`, which handles provider
+selection, fallback chains, audit logging, and cost tracking automatically.
 
 | Provider | Format | When to use |
 |----------|--------|-------------|

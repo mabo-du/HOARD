@@ -4,7 +4,7 @@
 
 A fully local, multi-stage AI pipeline that converts archaeological field data — context sheets, finds catalogues, site photographs, section drawings, and sample results — into a near-publication-ready grey literature report conforming to the relevant heritage authority standard.
 
-Targets 8 GB VRAM consumer GPUs. Runs entirely on-device via Ollama — zero API calls, zero data leaves your machine.
+Targets 8 GB VRAM consumer GPUs. Runs locally via Ollama with optional cloud provider fallback (OpenAI, Anthropic, Google Gemini).
 
 ---
 
@@ -48,7 +48,7 @@ HOARD shares data contracts and workflows with [StratiGraph](https://github.com/
 
 ```bash
 # Install
-pip install hoard            # from PyPI
+pip install hoard-erd         # from PyPI
 # or from source
 git clone https://github.com/mabo-du/HOARD.git
 cd HOARD && pip install -e ".[dev]"
@@ -60,7 +60,7 @@ ollama pull glm-ocr qwen3-vl:8b qwen3.5-4b gemma4
 hoard init "Stoneyfield Farm 2026" --jurisdiction historic_england_cl3
 
 # Run Phase 0 (no GPU needed)
-hoard run --project stoneyfield_farm_2026 --input ./field_records --phase 0
+hoard run --project stoneyfield_farm_2026 --phase 0
 
 # List available jurisdiction templates
 hoard templates list
