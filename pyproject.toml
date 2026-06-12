@@ -76,7 +76,7 @@ ignore_missing_imports = true
 disable_error_code = ["import-untyped"]
 
 [[tool.mypy.overrides]]
-module = ["docx.*", "docling.*", "wand.*", "pyhanko.*"]
+module = ["docx", "docx.*", "docling", "docling.*", "wand", "wand.*", "pyhanko", "pyhanko.*", "pyhanko_certvalidator", "pyhanko_certvalidator.*"]
 ignore_errors = true
 
 [tool.setuptools.packages.find]
