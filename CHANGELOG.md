@@ -6,6 +6,26 @@ All notable changes to HOARD are documented here. This project follows
 
 ## [Unreleased]
 
+## [0.2.2] — 2026-06-12
+
+### Fixed
+
+- **CI workflow** — switched from `uv pip install --system` to venv-based
+  install to fix "externally managed" error on newer GitHub Actions runners.
+  All subsequent steps (ruff, mypy, pytest, CLI verification) now source
+  `.venv/bin/activate`.
+- **Release workflow** — `uvx build` replaced with `uvx --from build
+  pyproject-build` after the `build` package renamed its entry point.
+  Removed redundant `uv venv` calls (setup-uv already creates `.venv`).
+- **PyPI publishing** — distribution name changed from `hoard` to `hoard-erd`
+  after discovering a 2013 name collision on PyPI. Import package remains
+  `hoard`.
+
+### Dependencies
+
+- **heritage-models** v1.0.0 now published to PyPI, unblocking CI and
+  release builds that previously failed on dependency resolution.
+
 ## [0.2.1] — 2026-06-12
 
 ### Fixed
@@ -144,7 +164,8 @@ All notable changes to HOARD are documented here. This project follows
 - **E2E test datasets** — Pinn Brook Park (49 contexts, CC-BY 4.0), A14
   Cambridge to Huntingdon (99 contexts), Gallows Hill (50-70 contexts).
 
-[Unreleased]: https://github.com/mabo-du/HOARD/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/mabo-du/HOARD/compare/v0.2.2...HEAD
+[0.2.2]: https://github.com/mabo-du/HOARD/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/mabo-du/HOARD/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/mabo-du/HOARD/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/mabo-du/HOARD/releases/tag/v0.1.0
