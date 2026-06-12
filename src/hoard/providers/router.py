@@ -13,6 +13,7 @@ used_by: hoard.phases.* (planned for Phase B integration)
 
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
@@ -245,6 +246,14 @@ class ProviderRouter:
         raise ProviderError(
             f"All providers failed for phase {phase}. Last error: {last_error}",
         )
+
+    def route_sync(self, request: InferenceRequest, phase: int) -> InferenceResponse:
+        """Synchronous wrapper around the async route() method.
+
+        Uses asyncio.run() to bridge the async provider implementations
+        to synchronous caller contexts (phase modules).
+        """
+        return asyncio.run(self.route(request, phase))
 
     def _build_chain(
         self, phase: int, request: InferenceRequest,

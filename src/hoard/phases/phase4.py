@@ -24,11 +24,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-import requests
 import yaml
 
 from hoard.config import Config
-from hoard.helpers import OLLAMA_BASE_URL
 
 logger = logging.getLogger(__name__)
 
@@ -116,30 +114,19 @@ def _ollama_generate(
     temperature: float = DEFAULT_TEMPERATURE,
     timeout: int = DEFAULT_TIMEOUT,
 ) -> str:
-    """Call Ollama's generate API. Returns response text."""
-    url = f"{OLLAMA_BASE_URL}/api/generate"
-    payload: dict[str, Any] = {
-        "model": model,
-        "system": system,
-        "prompt": prompt,
-        "temperature": temperature,
-        "stream": False,
-        "options": {"num_ctx": 16384},
-    }
+    """Call the LLM via the provider abstraction. Returns response text."""
+    from hoard.helpers import generate_via_provider
 
-    try:
-        resp = requests.post(url, json=payload, timeout=timeout)
-        resp.raise_for_status()
-        return resp.json().get("response", "")
-    except requests.ConnectionError:
-        raise RuntimeError(
-            f"Cannot connect to Ollama at {OLLAMA_BASE_URL}. "
-            f"Ensure Ollama is running."
-        )
-    except requests.Timeout:
-        raise RuntimeError(f"Ollama request timed out after {timeout}s.")
-    except requests.RequestException as e:
-        raise RuntimeError(f"Ollama API error: {e}")
+    result = generate_via_provider(
+        model=model,
+        system=system,
+        prompt=prompt,
+        phase=4,
+        temperature=temperature,
+        num_ctx=16384,
+        timeout=timeout,
+    )
+    return result["response"]
 
 
 # ── Compliance Checks ────────────────────────────────────────────────────────

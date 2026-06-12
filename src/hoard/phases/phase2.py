@@ -28,11 +28,10 @@ from dataclasses import dataclass, field, asdict
 from pathlib import Path
 from typing import Any
 
-import requests
 from PIL import Image
 
 from hoard.config import Config
-from hoard.helpers import OLLAMA_BASE_URL, evict_ollama_model
+from hoard.helpers import evict_ollama_model
 
 logger = logging.getLogger(__name__)
 
@@ -86,69 +85,64 @@ def _call_qwen_vl(
 
     Returns parsed JSON dict on success, None on failure.
     """
+    from hoard.helpers import generate_via_provider
+
     b64_image = base64.b64encode(image_bytes).decode("utf-8")
 
-    payload: dict[str, Any] = {
-        "model": model,
-        "prompt": f"{system_prompt}\n\n{user_prompt}",
-        "images": [b64_image],
-        "options": {
-            "temperature": temperature,
-            "num_ctx": VL_CTX_SIZE,
-        },
-        "stream": False,
-        "keep_alive": -1,  # Keep in VRAM during batch
-    }
-
     try:
-        resp = requests.post(
-            f"{OLLAMA_BASE_URL}/api/generate",
-            json=payload,
+        result = generate_via_provider(
+            model=model,
+            system=system_prompt,
+            prompt=user_prompt,
+            phase=2,
+            temperature=temperature,
+            images=[b64_image],
+            num_ctx=VL_CTX_SIZE,
+            keep_alive=-1,
             timeout=VL_TIMEOUT,
         )
-        resp.raise_for_status()
-        text = resp.json().get("response", "").strip()
+        text = result["response"].strip()
+    except Exception as e:
+        logger.error(f"Qwen3-VL request failed via provider: {e}")
+        return None
 
-        if not text:
-            logger.warning("Qwen3-VL returned empty response")
-            return None
+    if not text:
+        logger.warning("Qwen3-VL returned empty response")
+        return None
 
-        # Try direct JSON parse first
+    # Try direct JSON parse first
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        pass
+
+    # Fallback: extract JSON from markdown code block or braces
+    json_match = re.search(r"```(?:json)?\s*\n?(.*?)```", text, re.DOTALL)
+    if json_match:
         try:
-            return json.loads(text)
+            return json.loads(json_match.group(1).strip())
         except json.JSONDecodeError:
             pass
 
-        # Fallback: extract JSON from markdown code block or braces
-        json_match = re.search(r"```(?:json)?\s*\n?(.*?)```", text, re.DOTALL)
-        if json_match:
-            try:
-                return json.loads(json_match.group(1).strip())
-            except json.JSONDecodeError:
-                pass
+    # Last resort: find anything that looks like { ... }
+    brace_match = re.search(r"\{[\s\S]*\}", text)
+    if brace_match:
+        try:
+            return json.loads(brace_match.group())
+        except json.JSONDecodeError:
+            pass
 
-        # Last resort: find anything that looks like { ... }
-        brace_match = re.search(r"\{[\s\S]*\}", text)
-        if brace_match:
-            try:
-                return json.loads(brace_match.group())
-            except json.JSONDecodeError:
-                pass
+    # Truncated JSON fallback: extract caption value if visible
+    cap_match = re.search(r'"caption"\s*:\s*"([^"]+)"', text)
+    if cap_match:
+        return {"caption": cap_match.group(1)}
 
-        # Truncated JSON fallback: extract caption value if visible
-        cap_match = re.search(r'"caption"\s*:\s*"([^"]+)"', text)
-        if cap_match:
-            return {"caption": cap_match.group(1)}
+    # Prose fallback: return full text as caption
+    if len(text) > 20:
+        return {"caption": text.strip()[:500]}
 
-        # Prose fallback: return full text as caption
-        if len(text) > 20:
-            return {"caption": text.strip()[:500]}
-
-        logger.warning(f"Could not parse JSON from response: {text[:200]}")
-        return None
-    except Exception as e:
-        logger.warning(f"Qwen3-VL call failed: {e}")
-        return None
+    logger.warning(f"Could not parse JSON from response: {text[:200]}")
+    return None
 
 
 def _synthesize_caption(
@@ -409,22 +403,21 @@ def process_svg_drawing(
     user = f"Context numbers: {_ctx_numbers(context_data)}" if context_data else ""
 
     try:
+        from hoard.helpers import generate_via_provider
+
         b64_image = base64.b64encode(image_bytes).decode("utf-8")
-        payload: dict[str, Any] = {
-            "model": GLM_OCR_MODEL,
-            "prompt": f"{system}\n{user}".strip(),
-            "images": [b64_image],
-            "options": {"temperature": 0.1, "num_ctx": VL_CTX_SIZE},
-            "stream": False,
-            "keep_alive": -1,
-        }
-        resp = requests.post(
-            f"{OLLAMA_BASE_URL}/api/generate",
-            json=payload,
+        result = generate_via_provider(
+            model=GLM_OCR_MODEL,
+            system=system,
+            prompt=user,
+            phase=2,
+            temperature=0.1,
+            images=[b64_image],
+            num_ctx=VL_CTX_SIZE,
+            keep_alive=-1,
             timeout=SVG_TIMEOUT,
         )
-        resp.raise_for_status()
-        raw_text = resp.json().get("response", "")
+        raw_text = result["response"]
 
         # Extract SVG from response
         svg = _extract_svg_from_text(raw_text)
@@ -436,11 +429,7 @@ def process_svg_drawing(
         svg = _postprocess_svg(svg, width, height, image_path.stem)
         return svg
 
-    except requests.Timeout:
-        logger.error(f"SVG generation timed out for {image_path.name} "
-                     f"(>{SVG_TIMEOUT}s)")
-        return None
-    except Exception as e:
+    except RuntimeError as e:
         logger.error(f"SVG generation failed for {image_path.name}: {e}")
         return None
 

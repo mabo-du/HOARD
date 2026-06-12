@@ -33,12 +33,11 @@ from typing import Any
 
 import numpy as np
 import re
-import requests
 from docling.document_converter import DocumentConverter
 from pydantic import BaseModel, Field
 
 from hoard.config import Config
-from hoard.helpers import OLLAMA_BASE_URL, evict_ollama_model
+from hoard.helpers import evict_ollama_model
 
 logger = logging.getLogger(__name__)
 
@@ -173,25 +172,21 @@ def _call_glm_ocr(
     if context_number_hint:
         prompt += f"\n\nThis is context sheet number {context_number_hint}."
 
-    # Build request with image
-    url = f"{OLLAMA_BASE_URL}/api/generate"
-    payload: dict[str, Any] = {
-        "model": GLM_OCR_MODEL,
-        "prompt": prompt,
-        "images": [b64_image],
-        "format": ContextSheet.model_json_schema(),
-        "options": {
-            "temperature": GLM_TEMPERATURE,
-            "num_ctx": GLM_CTX_SIZE,
-        },
-        "stream": False,
-        "keep_alive": -1,  # Lock in VRAM during batch processing
-    }
+    from hoard.helpers import generate_via_provider
 
-    resp = requests.post(url, json=payload, timeout=GLM_TIMEOUT)
-    resp.raise_for_status()
-    result = resp.json()
-    response_text = result.get("response", "")
+    result = generate_via_provider(
+        model=GLM_OCR_MODEL,
+        system="",
+        prompt=prompt,
+        phase=1,
+        temperature=GLM_TEMPERATURE,
+        images=[b64_image],
+        response_schema=ContextSheet.model_json_schema(),
+        num_ctx=GLM_CTX_SIZE,
+        keep_alive=-1,
+        timeout=GLM_TIMEOUT,
+    )
+    response_text = result["response"]
 
     # Parse and validate with Pydantic
     try:
@@ -203,29 +198,27 @@ def _call_glm_ocr(
 
 
 def _call_vlm_fallback(image_bytes: bytes, system_prompt: str) -> dict[str, Any]:
-    """Fallback: call Qwen3-VL-8B via Ollama when GLM-OCR fails.
+    """Fallback: call Qwen3-VL-8B via provider abstraction.
 
     Less strict schema adherence but better resilience on degraded docs.
     """
+    from hoard.helpers import generate_via_provider
+
     b64_image = base64.b64encode(image_bytes).decode("utf-8")
 
-    url = f"{OLLAMA_BASE_URL}/api/generate"
-    payload: dict[str, Any] = {
-        "model": QWEN_VL_FALLBACK,
-        "prompt": system_prompt,
-        "images": [b64_image],
-        "format": ContextSheet.model_json_schema(),
-        "options": {
-            "temperature": 0.1,
-            "num_ctx": 32768,
-        },
-        "stream": False,
-        "keep_alive": -1,
-    }
-
-    resp = requests.post(url, json=payload, timeout=180)
-    resp.raise_for_status()
-    response_text = resp.json().get("response", "")
+    result = generate_via_provider(
+        model=QWEN_VL_FALLBACK,
+        system="",
+        prompt=system_prompt,
+        phase=1,
+        temperature=0.1,
+        images=[b64_image],
+        response_schema=ContextSheet.model_json_schema(),
+        num_ctx=32768,
+        keep_alive=-1,
+        timeout=180,
+    )
+    response_text = result["response"]
 
     try:
         parsed = ContextSheet.model_validate_json(response_text)

@@ -23,10 +23,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-import requests
-
 from hoard.config import Config
-from hoard.helpers import load_json_safe, find_json_files, OLLAMA_BASE_URL
+from hoard.helpers import load_json_safe, find_json_files
 
 logger = logging.getLogger(__name__)
 
@@ -280,63 +278,22 @@ def _ollama_generate(
     temperature: float = DEFAULT_TEMPERATURE,
     timeout: int = DEFAULT_TIMEOUT,
 ) -> dict[str, Any]:
-    """Call Ollama's generate API and return the response.
+    """Call the LLM via the provider abstraction.
 
     Returns dict with 'response' (str) and optionally 'reasoning' (str)
     if the model supports thinking/reasoning output.
     """
-    url = f"{OLLAMA_BASE_URL}/api/generate"
-    payload: dict[str, Any] = {
-        "model": model,
-        "system": system,
-        "prompt": prompt,
-        "temperature": temperature,
-        "stream": False,
-        "options": {
-            "num_ctx": 32768,  # 32K context window
-        },
-    }
+    from hoard.helpers import generate_via_provider
 
-    try:
-        resp = requests.post(url, json=payload, timeout=timeout)
-        resp.raise_for_status()
-        result = resp.json()
-
-        response_text = result.get("response", "")
-
-        # Try to extract thinking/reasoning if present
-        # Qwen3.5 in thinking mode outputs <think>...</think> blocks
-        reasoning = None
-        think_match = re.search(
-            r"<think>(.*?)</think>", response_text, re.DOTALL
-        )
-        if think_match:
-            reasoning = think_match.group(1).strip()
-            # Remove thinking block from the response
-            response_text = re.sub(
-                r"<think>.*?</think>\s*", "", response_text, flags=re.DOTALL
-            ).strip()
-
-        return {
-            "response": response_text,
-            "reasoning": reasoning,
-            "model": model,
-            "eval_count": result.get("eval_count", 0),
-            "eval_duration": result.get("eval_duration", 0),
-        }
-
-    except requests.ConnectionError:
-        raise RuntimeError(
-            f"Cannot connect to Ollama at {OLLAMA_BASE_URL}. "
-            f"Ensure Ollama is running: 'ollama serve'"
-        )
-    except requests.Timeout:
-        raise RuntimeError(
-            f"Ollama request timed out after {timeout}s. "
-            f"The model may still be loading or the prompt is too long."
-        )
-    except requests.RequestException as e:
-        raise RuntimeError(f"Ollama API error: {e}")
+    return generate_via_provider(
+        model=model,
+        system=system,
+        prompt=prompt,
+        phase=3,
+        temperature=temperature,
+        num_ctx=32768,
+        timeout=timeout,
+    )
 
 
 def _extract_sections(markdown_text: str) -> dict[str, str]:
