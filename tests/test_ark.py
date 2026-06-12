@@ -489,6 +489,10 @@ class TestSemanticMapper:
     similar to known HOARD fields.
     """
 
+    @pytest.fixture(autouse=True)
+    def _require_sentence_transformers(self) -> None:
+        pytest.importorskip("sentence_transformers", reason="requires ark extra")
+
     def test_mapper_instantiation(self) -> None:
         mapper = ArkSemanticMapper()
         assert mapper is not None

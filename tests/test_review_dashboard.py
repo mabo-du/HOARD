@@ -302,4 +302,5 @@ def test_cli_help_invocation() -> None:
     result = runner.invoke(app, ["review", "--help"])
     assert result.exit_code == 0
     assert "Open the review dashboard" in result.output
-    assert "--project" in result.output
+    # Rich ANSI formatting may split --project across escape codes
+    assert "-project" in result.output

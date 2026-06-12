@@ -364,6 +364,9 @@ def run_phase0(config: Config) -> dict[str, Any]:
             normalised_pages = _normalise_image(filepath, assets_dir)
             if not normalised_pages:
                 continue  # Corrupt or unsupported image — skip
+        else:
+            # Non-image file (CSV, XLSX, TXT, DOCX, MD, DXF, SVG) — process directly
+            normalised_pages = [filepath]
 
         # Create one manifest entry per normalised page
         for page_idx, normalised in enumerate(normalised_pages):
