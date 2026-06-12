@@ -73,7 +73,7 @@ jobs:
         run: |
           source .venv/bin/activate
           pyinstaller --onefile \
-            --name hoard \
+            --name hoard-linux \
             --add-data "templates:templates" \
             --add-data "schemas:schemas" \
             --hidden-import hoard.cli.main \
@@ -104,7 +104,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: hoard-linux-x86_64
-          path: dist/hoard
+          path: dist/hoard-linux
 
   # ── macOS standalone executable ──────────────────────────────────────────
   macos:
@@ -132,7 +132,7 @@ jobs:
         run: |
           source .venv/bin/activate
           pyinstaller --onefile \
-            --name hoard \
+            --name hoard-macos \
             --add-data "templates:templates" \
             --add-data "schemas:schemas" \
             --hidden-import hoard.cli.main \
@@ -164,7 +164,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: hoard-macos-arm64
-          path: dist/hoard
+          path: dist/hoard-macos
 
   # ── Windows standalone executable ────────────────────────────────────────
   windows:
@@ -248,8 +248,8 @@ jobs:
 
           | Platform | File |
           |----------|------|
-          | Linux (x86_64) | \`hoard-linux-x86_64/hoard\` |
-          | macOS (arm64) | \`hoard-macos-arm64/hoard\` |
+          | Linux (x86_64) | \`hoard-linux-x86_64/hoard-linux\` |
+          | macOS (arm64) | \`hoard-macos-arm64/hoard-macos\` |
           | Windows (x86_64) | \`hoard-windows-x86_64/hoard.exe\` |
           | Source (pip install) | Published to PyPI automatically |
 
@@ -286,8 +286,8 @@ jobs:
           name: HOARD ${{ github.ref_name }}
           body_path: RELEASE_NOTES.md
           files: |
-            artifacts/hoard-linux-x86_64/hoard
-            artifacts/hoard-macos-arm64/hoard
+            artifacts/hoard-linux-x86_64/hoard-linux
+            artifacts/hoard-macos-arm64/hoard-macos
             artifacts/hoard-windows-x86_64/hoard.exe
           draft: false
           prerelease: false
