@@ -14,6 +14,9 @@ Usage:
         messages=[{"role": "user", "content": "Summarise the stratigraphy"}],
         model_name="qwen3.5-4b",
     )
+    # Synchronous (phase modules):
+    response = router.route_sync(request, phase=3)
+    # Async (headless workers):
     response = await router.route(request, phase=3)
 
 Architecture (see docs/research-prompts/multi-provider-ai-abstraction.md):

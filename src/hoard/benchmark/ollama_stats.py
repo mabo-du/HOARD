@@ -14,7 +14,7 @@ from typing import Any
 
 import requests
 
-OLLAMA_BASE = "http://localhost:11434"
+from hoard.helpers import OLLAMA_BASE_URL as OLLAMA_BASE
 
 
 def get_ollama_model_stats() -> list[dict[str, Any]]:

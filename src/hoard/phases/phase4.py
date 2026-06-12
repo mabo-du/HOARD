@@ -104,7 +104,7 @@ def _parse_sections_from_draft(draft_text: str) -> dict[str, str]:
     return sections
 
 
-# ── Ollama API ────────────────────────────────────────────────────────────────
+# ── Provider Inference ───────────────────────────────────────────────────
 
 
 def _ollama_generate(

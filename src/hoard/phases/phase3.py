@@ -9,7 +9,8 @@ before the final draft. This reasoning chain is captured and logged.
 
 exports: run_phase3(config) -> dict  — executes synthesis, returns draft metadata
 used_by: hoard.cli.run  → orchestrator
-rules:   Must call Ollama API (localhost:11434). Must handle Ollama not running.
+rules:   Routes inference through ProviderRouter (generate_via_provider).
+         Must handle provider errors gracefully.
          Must capture thinking/reasoning chain if available.
          Must flag sections for human review if triggers fire.
 """
@@ -268,7 +269,7 @@ def assemble_context(config: Config) -> str:
     return "\n".join(parts)
 
 
-# ── Ollama API ────────────────────────────────────────────────────────────────
+# ── Provider Inference ──────────────────────────────────────────────────────
 
 
 def _ollama_generate(
