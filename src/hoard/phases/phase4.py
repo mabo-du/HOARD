@@ -166,17 +166,17 @@ def _build_compliance_prompt(
     ]
 
     if required_fields:
-        prompt_parts.append(f"\nRequired fields for this section:\n")
+        prompt_parts.append("\nRequired fields for this section:\n")
         for field in required_fields:
             prompt_parts.append(f"  - {field}")
 
     if field_defaults:
-        prompt_parts.append(f"\nDefault values for missing fields:\n")
+        prompt_parts.append("\nDefault values for missing fields:\n")
         for field, default in field_defaults.items():
             prompt_parts.append(f"  {field}: {default}")
 
     if prohibited_terms:
-        prompt_parts.append(f"\nProhibited terms (replace if found):\n")
+        prompt_parts.append("\nProhibited terms (replace if found):\n")
         for term in prohibited_terms:
             prompt_parts.append(f"  - {term}")
 

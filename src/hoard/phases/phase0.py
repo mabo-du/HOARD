@@ -357,8 +357,6 @@ def run_phase0(config: Config) -> dict[str, Any]:
         if ext not in ACCEPTED_EXTENSIONS:
             continue
 
-        file_id = f"{filepath.stem}_{_file_hash(filepath)[:8]}"
-
         # Step 2: Normalise images (PDF → per-page PNG, HEIC/RAW → PNG)
         normalised_pages: list[Path] = []
 

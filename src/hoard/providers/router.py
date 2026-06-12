@@ -22,7 +22,6 @@ from hoard.providers.protocol import (
     InferenceRequest,
     InferenceResponse,
     ModelProvider,
-    ProviderCapabilities,
     TokenUsage,
     PrivacyTier,
     ProviderError,
@@ -367,7 +366,6 @@ class ProviderRouter:
         if not self._audit_log:
             return
         import json
-        from datetime import datetime, timezone
 
         target = (project_dir or Path.cwd()) / "logs" / "provider_audit.json"
         target.parent.mkdir(parents=True, exist_ok=True)

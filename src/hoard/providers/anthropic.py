@@ -11,7 +11,6 @@ from __future__ import annotations
 from typing import Any
 
 from hoard.providers.protocol import (
-    ModelProvider,
     ProviderCapabilities,
     InferenceRequest,
     InferenceResponse,
@@ -162,7 +161,7 @@ class AnthropicProvider:
                 )
         except httpx.TimeoutException as e:
             raise ProviderError(
-                f"Anthropic request timed out after 120s", provider=self.provider_name
+                "Anthropic request timed out after 120s", provider=self.provider_name
             ) from e
         except httpx.ConnectError as e:
             raise ProviderError(

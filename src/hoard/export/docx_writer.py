@@ -27,8 +27,7 @@ from typing import Any
 from docx import Document
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.enum.table import WD_TABLE_ALIGNMENT
-from docx.oxml.ns import qn
-from docx.shared import Inches, Pt, Cm, RGBColor
+from docx.shared import Inches, Pt, RGBColor
 
 
 def write_docx(
@@ -149,7 +148,6 @@ def _add_markdown_body(doc: Document, md_text: str) -> None:
     """
     lines = md_text.split("\n")
     i = 0
-    in_table = False
     table_rows: list[list[str]] = []
 
     while i < len(lines):
@@ -164,7 +162,6 @@ def _add_markdown_body(doc: Document, md_text: str) -> None:
 
         # ── Heading ──
         if stripped.startswith("#"):
-            in_table = False
             _flush_table(doc, table_rows)
             table_rows = []
             heading_level = len(stripped.split(" ")[0])  # count #
@@ -177,7 +174,6 @@ def _add_markdown_body(doc: Document, md_text: str) -> None:
 
         # ── Bullet list ──
         if stripped.startswith("- ") or stripped.startswith("* "):
-            in_table = False
             _flush_table(doc, table_rows)
             table_rows = []
             text = stripped[2:].strip()
@@ -188,7 +184,6 @@ def _add_markdown_body(doc: Document, md_text: str) -> None:
 
         # ── Table ──
         if "|" in stripped and stripped.startswith("|"):
-            in_table = True
             table_rows.append(stripped)
             i += 1
             continue
@@ -196,7 +191,6 @@ def _add_markdown_body(doc: Document, md_text: str) -> None:
         # ── Image ──
         img_match = re.match(r"!\[([^\]]*)\]\(([^)]+)\)", stripped)
         if img_match:
-            in_table = False
             _flush_table(doc, table_rows)
             table_rows = []
             alt_text = img_match.group(1)
@@ -225,14 +219,12 @@ def _add_markdown_body(doc: Document, md_text: str) -> None:
 
         # ── Empty line → paragraph break ──
         if not stripped:
-            in_table = False
             _flush_table(doc, table_rows)
             table_rows = []
             i += 1
             continue
 
         # ── Regular paragraph ──
-        in_table = False
         _flush_table(doc, table_rows)
         table_rows = []
         p = doc.add_paragraph()

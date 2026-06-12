@@ -19,7 +19,6 @@ license: MIT
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
 
 from PIL import Image
 
@@ -178,7 +177,7 @@ def _plates_to_markdown(plates: list[list[_ImageEntry]]) -> str:
 
             table_rows.append(f"| {left_md} | {right_md} |")
             table_rows.append(f"| **{left_cap}** | **{right_cap}** |")
-            table_rows.append(f"|---|")
+            table_rows.append("|---|")
 
         sections.append("\n".join(table_rows))
         sections.append("")

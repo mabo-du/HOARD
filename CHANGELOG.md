@@ -6,6 +6,16 @@ All notable changes to HOARD are documented here. This project follows
 
 ## [Unreleased]
 
+## [0.2.3] — 2026-06-12
+
+### Fixed
+
+- **GitHub Release artifacts** — corrected artifact paths in release workflow
+  so standalone executables are attached to GitHub Releases.
+- **51 ruff lint violations** — resolved all pre-existing lint errors across
+  22 files (unused imports, unused variables, f-strings without placeholders,
+  undefined names, local-import variable shadowing in `main.py`).
+
 ## [0.2.2] — 2026-06-12
 
 ### Fixed
@@ -164,7 +174,8 @@ All notable changes to HOARD are documented here. This project follows
 - **E2E test datasets** — Pinn Brook Park (49 contexts, CC-BY 4.0), A14
   Cambridge to Huntingdon (99 contexts), Gallows Hill (50-70 contexts).
 
-[Unreleased]: https://github.com/mabo-du/HOARD/compare/v0.2.2...HEAD
+[Unreleased]: https://github.com/mabo-du/HOARD/compare/v0.2.3...HEAD
+[0.2.3]: https://github.com/mabo-du/HOARD/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/mabo-du/HOARD/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/mabo-du/HOARD/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/mabo-du/HOARD/compare/v0.1.0...v0.2.0

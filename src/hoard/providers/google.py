@@ -11,7 +11,6 @@ from __future__ import annotations
 from typing import Any
 
 from hoard.providers.protocol import (
-    ModelProvider,
     ProviderCapabilities,
     InferenceRequest,
     InferenceResponse,
@@ -82,7 +81,6 @@ class GoogleProvider:
         - System instruction as a top-level parameter
         """
         import httpx
-        import json
 
         # Separate system instruction
         system_text: str | None = None
@@ -158,11 +156,11 @@ class GoogleProvider:
                 resp = await client.post(url, json=body)
         except httpx.TimeoutException as e:
             raise ProviderError(
-                f"Google request timed out after 120s", provider=self.provider_name
+                "Google request timed out after 120s", provider=self.provider_name
             ) from e
         except httpx.ConnectError as e:
             raise ProviderError(
-                f"Cannot connect to Google API", provider=self.provider_name
+                "Cannot connect to Google API", provider=self.provider_name
             ) from e
 
         if resp.status_code == 403:

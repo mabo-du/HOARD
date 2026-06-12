@@ -16,7 +16,6 @@ license: MIT
 
 from __future__ import annotations
 
-import json
 import re
 import zipfile
 from datetime import datetime, timezone
@@ -468,7 +467,6 @@ def _generate_tei_xml(md_text: str, output_path: Path, project_name: str) -> Non
     blank-line-delimited blocks → paragraphs.
     """
     import html as html_mod
-    import re as regex
 
     date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 

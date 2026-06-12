@@ -28,7 +28,6 @@ import base64
 import json
 import logging
 import time
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -460,8 +459,6 @@ def run_phase1(config: Config) -> dict[str, Any]:
     output_dir = config.digitised_dir
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    assets_dir = config.assets_dir
-
     # Load manifest
     manifest_path = config.manifest_dir / "manifest.json"
     if not manifest_path.exists():
@@ -652,7 +649,7 @@ def _validate_context_schema(digitised_dir: Path) -> tuple[int, list[str]]:
             data = json.loads(f.read_text())
             # Validate by constructing a StratigraphicUnit from the data
             # Pydantic's extra='allow' ensures forward compatibility
-            su = StratigraphicUnit(**data)
+            StratigraphicUnit(**data)
             valid_count += 1
         except Exception as e:
             errors.append(f"{f.name}: {e}")

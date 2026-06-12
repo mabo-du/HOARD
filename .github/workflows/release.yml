@@ -284,8 +284,8 @@ jobs:
           name: HOARD ${{ github.ref_name }}
           body_path: RELEASE_NOTES.md
           files: |
-            artifacts/hoard-linux-x86_64/hoard
-            artifacts/hoard-macos-arm64/hoard
-            artifacts/hoard-windows-x86_64/hoard.exe
+            artifacts/hoard-linux-x86_64/dist/hoard
+            artifacts/hoard-macos-arm64/dist/hoard
+            artifacts/hoard-windows-x86_64/dist/hoard.exe
           draft: false
           prerelease: false

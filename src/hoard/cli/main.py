@@ -92,7 +92,7 @@ def init(
         try:
             from hoard.providers import get_router
             summary = get_router(interactive=True, force_reinit=True)
-            console.print(f"\n[bold]Hardware Profile:[/]")
+            console.print("\n[bold]Hardware Profile:[/]")
             for line in summary.split("\n"):
                 console.print(f"  {line}")
         except ImportError:
@@ -298,7 +298,7 @@ def export(
     export_paths = result.get("export_paths", {})
 
     if export_paths:
-        console.print(f"[green]✓[/] Export complete")
+        console.print("[green]✓[/] Export complete")
         for fmt_name, path in export_paths.items():
             console.print(f"  • {fmt_name}: {path}")
     else:
@@ -356,7 +356,6 @@ def templates_cmd(
             raise typer.Exit(1)
         from rich.syntax import Syntax
         from io import StringIO
-        import yaml
         buf = StringIO()
         yaml.dump(template, buf, default_flow_style=False, allow_unicode=True)
         syntax = Syntax(buf.getvalue(), "yaml", theme="monokai", line_numbers=True)
@@ -376,7 +375,7 @@ def templates_cmd(
             console.print(f"[red]✗[/] YAML parse error: {e}")
             raise typer.Exit(1)
         if not isinstance(raw, dict):
-            console.print(f"[red]✗[/] Template is empty or not a valid YAML dictionary")
+            console.print("[red]✗[/] Template is empty or not a valid YAML dictionary")
             raise typer.Exit(1)
         # Run structural checks via TemplateEngine
         engine = TemplateEngine(template_dir=file_path.parent)

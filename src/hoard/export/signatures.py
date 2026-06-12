@@ -52,7 +52,9 @@ def sign_pdf(
     try:
         from pyhanko.sign import signers
         from pyhanko.sign.fields import SigSeedSubFilter
-        from pyhanko_certvalidator import ValidationContext
+        import importlib.util
+        if importlib.util.find_spec("pyhanko_certvalidator") is None:
+            raise ImportError("pyhanko_certvalidator not installed")
     except ImportError:
         logger.info("pyHanko not installed — PDF signing skipped. "
                      "Install with: pip install pyhanko pyhanko-certvalidator")

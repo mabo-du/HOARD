@@ -13,6 +13,7 @@ agent:   deepseek-v4-flash | 2026-05-09 | s_20260509_001 | Initial scaffold
 
 from __future__ import annotations
 
+from typing import Any
 
 from rich.console import Console
 
@@ -78,14 +79,13 @@ def run_pipeline(config: Config, benchmark: bool = False) -> None:
             status = result.get("status", "failed")
             processed = result.get("processed", 0)
             failed = result.get("failed", 0)
-            total = result.get("total_files", 0)
 
             if status == "failed":
                 console.print(f"[red]✗[/] Phase 1 failed: {result.get('error', 'Unknown error')}")
                 ws.state.fail_phase(1, result.get("error", ""))
                 return
 
-            console.print(f"[green]✓[/] Phase 1 complete")
+            console.print("[green]✓[/] Phase 1 complete")
             console.print(f"  Processed: {processed} documents ({failed} failed)")
             console.print(f"  Output: {result.get('output_dir', 'N/A')}")
             if failed > 0:
@@ -119,7 +119,7 @@ def run_pipeline(config: Config, benchmark: bool = False) -> None:
                 console.print("[yellow]ℹ[/] Phase 2: no images in assets/ — skipping")
                 ws.state.complete_phase(2, "Skipped — no images found")
             else:
-                console.print(f"[green]✓[/] Phase 2 complete")
+                console.print("[green]✓[/] Phase 2 complete")
                 console.print(f"  Photos processed: {processed} ({failed} failed)")
                 console.print(f"  SVG drawings: {svg_count}")
                 console.print(f"  Output: {result.get('output_dir')}")
@@ -197,7 +197,7 @@ def run_pipeline(config: Config, benchmark: bool = False) -> None:
             console.print(f"  Duration: {result.get('duration_ms', 0) / 1000:.1f}s")
 
             if missing:
-                console.print(f"\n[yellow]⚠  Missing sections (placeholders inserted):[/]")
+                console.print("\n[yellow]⚠  Missing sections (placeholders inserted):[/]")
                 for s in missing:
                     console.print(f"  [yellow]•[/] {s}")
 

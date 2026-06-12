@@ -501,9 +501,6 @@ def _postprocess_svg(
         logger.warning(f"SVG parsing failed: {e} — returning raw SVG")
         return _add_svg_metadata(svg, title)
 
-    ns = {"svg": "http://www.w3.org/2000/svg"}
-    svg_tag = root.tag if not root.tag.startswith("{") else root.tag
-
     # Check/set viewBox
     vb = root.get("viewBox")
     if not vb:
@@ -518,7 +515,7 @@ def _postprocess_svg(
             root.remove(elem)
 
     # Add title element
-    title_elem = ET.SubElement(root, f"{{http://www.w3.org/2000/svg}}title")
+    title_elem = ET.SubElement(root, "{http://www.w3.org/2000/svg}title")
     title_elem.text = title.replace("_", " ").title()
 
     # Serialize back

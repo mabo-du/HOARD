@@ -16,7 +16,6 @@ rules:   Must call Ollama API (localhost:11434). Must handle Ollama not running.
 
 from __future__ import annotations
 
-import json
 import logging
 import re
 import time

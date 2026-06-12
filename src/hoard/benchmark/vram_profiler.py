@@ -121,7 +121,6 @@ class VRAMProfiler:
 
     def _monitor_loop(self) -> None:
         """Internal: continuously poll GPU telemetry."""
-        last_log = time.time()
         while self._monitoring and self._handle is not None:
             try:
                 mem = pynvml.nvmlDeviceGetMemoryInfo(self._handle)

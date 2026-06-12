@@ -13,7 +13,6 @@ import json
 from typing import Any
 
 from hoard.providers.protocol import (
-    ModelProvider,
     ProviderCapabilities,
     InferenceRequest,
     InferenceResponse,
