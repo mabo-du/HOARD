@@ -66,7 +66,6 @@ jobs:
 
       - name: Install project and PyInstaller
         run: |
-          uv venv
           uv pip install -e ".[dev]"
           uv pip install pyinstaller
 
@@ -126,7 +125,6 @@ jobs:
 
       - name: Install project and PyInstaller
         run: |
-          uv venv
           uv pip install -e ".[dev]"
           uv pip install pyinstaller
 
@@ -184,7 +182,6 @@ jobs:
       - name: Install project and PyInstaller
         shell: pwsh
         run: |
-          uv venv
           uv pip install -e ".[dev]"
           uv pip install pyinstaller
 
