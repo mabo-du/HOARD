@@ -31,7 +31,7 @@ from typing import Any
 from PIL import Image
 
 from hoard.config import Config
-from hoard.helpers import evict_ollama_model
+from hoard.helpers import evict_ollama_model, emit
 
 logger = logging.getLogger(__name__)
 
@@ -600,8 +600,10 @@ def run_phase2(config: Config) -> dict[str, Any]:
     processed_count = 0
     failed_count = 0
     results: list[dict[str, Any]] = []
+    photo_total = len(images)
 
-    for img_path in images:
+    for img_idx, img_path in enumerate(images):
+        emit("progress", phase=2, current=img_idx + 1, total=photo_total, item=img_path.name)
         logger.info(f"Processing {img_path.name}...")
         ctx_hint = _extract_context_hint(img_path.stem)
 

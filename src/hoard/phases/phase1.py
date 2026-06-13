@@ -37,7 +37,7 @@ from docling.document_converter import DocumentConverter
 from pydantic import BaseModel, Field
 
 from hoard.config import Config
-from hoard.helpers import evict_ollama_model
+from hoard.helpers import evict_ollama_model, emit
 
 logger = logging.getLogger(__name__)
 
@@ -490,7 +490,9 @@ def run_phase1(config: Config) -> dict[str, Any]:
     # ── Route 1: Context Sheets (GLM-OCR) ──
     if context_sheets:
         logger.info(f"Processing {len(context_sheets)} context sheet(s) via GLM-OCR")
-        for entry in context_sheets:
+        ctx_total = len(context_sheets)
+        for i, entry in enumerate(context_sheets):
+            emit("progress", phase=1, current=i + 1, total=ctx_total, item=entry.get("path", ""))
             src = _resolve_src(entry["path"])
             if src is None:
                 logger.warning(f"File not found: {entry['path']}")

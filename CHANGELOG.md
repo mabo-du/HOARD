@@ -12,11 +12,29 @@ All notable changes to HOARD are documented here. This project follows
 
 - **`--gui-mode` flag** — `hoard run` now accepts `--gui-mode` which
   suppresses Rich console output and emits structured JSON events to
-  stdout. Each pipeline milestone (phase start/complete/error/skip)
-  produces a JSON line consumable by desktop GUI tools (Trowel).
-  Event types: `phase_start`, `phase_skip`, `phase_complete`,
-  `phase_error`, `pipeline_halt`. This is the architectural boundary
-  for all future GUI integration.
+  stdout. Each pipeline milestone produces a JSON line consumable by
+  desktop GUI tools (Trowel).
+- **Event schema** — 9 event types covering the full pipeline lifecycle:
+
+  | Event | Fires when | Payload |
+  |-------|-----------|---------|
+  | `phase_start` | A phase begins | phase, name |
+  | `phase_skip` | A phase is skipped (already complete) | phase, name |
+  | `phase_complete` | A phase finishes successfully | phase, status, metrics |
+  | `phase_error` | A phase errors out | phase, error, hint |
+  | `pipeline_halt` | Pipeline halts on Phase 0 failures | reason |
+  | `review_required` | Phase generated flagged review items | phase, flagged_count, path |
+  | `progress` | Item-level progress in long-running phases | phase, current, total, item |
+  | `info` | Generic information message | message |
+
+  All events pass through regardless of hardware tier. Ultra-light
+  (cloud-only) users get the same GUI integration as local GPU users.
+- **`progress` events** in Phase 1 and Phase 2 processing loops —
+  Phase 1 emits progress per context sheet, Phase 2 per photo.
+- **`review_required` events** after phases 0-4 when flagged items
+  exist — lets Trowel pause and surface a review modal.
+- **Event system** moved to `hoard.helpers.emit()` so any module can
+  emit events. Set via `set_gui_mode(bool)` or `--gui-mode` CLI flag.
 - **Research synthesis** — `docs/research-prompts/ux-research-synthesis.md`
   resolves two deep-research reports on CLI-to-GUI accessibility.
   Pivotal fact confirmed: Trowel has standalone PyInstaller builds,

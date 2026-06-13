@@ -15,12 +15,12 @@ agent:   deepseek-v4-flash | 2026-05-09 | s_20260509_001 | Initial scaffold
 
 from __future__ import annotations
 
-import json
 from typing import Any
 
 from rich.console import Console
 
 from hoard.config import Config
+from hoard.helpers import emit, set_gui_mode
 from hoard.phases.phase0 import run_phase0
 from hoard.phases.phase1 import run_phase1
 from hoard.phases.phase2 import run_phase2
@@ -37,45 +37,6 @@ except ImportError:
 
 console = Console()
 
-# ── GUI Mode Event System ────────────────────────────────────────────────
-# When --gui-mode is active, the pipeline emits structured JSON events to
-# stdout instead of Rich-formatted console output. Desktop tools like Trowel
-# consume these JSON lines to map pipeline progress to native UI elements.
-
-_gui_mode = False
-
-def emit(event_type: str, phase: int | None = None, **data: Any) -> None:
-    """Emit a pipeline event.
-
-    In normal mode: prints Rich-formatted console output.
-    In gui-mode: prints a JSON line to stdout for Trowel to consume.
-    """
-    if _gui_mode:
-        payload: dict[str, Any] = {"event": event_type}
-        if phase is not None:
-            payload["phase"] = phase
-        payload.update(data)
-        print(json.dumps(payload, default=str))
-        return
-
-    # Rich-formatted output for normal (terminal) mode
-    if event_type == "phase_start":
-        console.print(f"[blue]→[/] Phase {phase}: {data.get('name', '')}")
-    elif event_type == "phase_skip":
-        console.print(f"[dim]Phase {phase}: already complete (skipping)[/]")
-    elif event_type == "phase_complete":
-        console.print(f"[green]✓[/] Phase {phase} complete.")
-    elif event_type == "phase_error":
-        console.print(f"[red]✗[/] Phase {phase} error: {data.get('error', '')}")
-        if "hint" in data:
-            console.print(f"  {data['hint']}")
-    elif event_type == "pipeline_halt":
-        console.print(f"[red]✗[/] {data.get('reason', 'Pipeline halted')}")
-    elif event_type == "info":
-        msg = data.get("message", "")
-        if msg:
-            console.print(msg)
-
 
 def run_pipeline(config: Config, benchmark: bool = False, gui_mode: bool = False) -> None:
     """Run all phases sequentially, respecting pipeline state.
@@ -84,8 +45,7 @@ def run_pipeline(config: Config, benchmark: bool = False, gui_mode: bool = False
     If gui_mode=True, emits structured JSON events to stdout instead of
     Rich-formatted console output.
     """
-    global _gui_mode
-    _gui_mode = gui_mode
+    set_gui_mode(gui_mode)
 
     ws = Workspace(config.project_dir)
     ws.ensure_dirs()
@@ -117,6 +77,10 @@ def run_pipeline(config: Config, benchmark: bool = False, gui_mode: bool = False
         emit("phase_complete", phase=0, status="success",
              files=len(manifest["files"]),
              quality_warnings=manifest.get("quality_warnings", 0))
+        if manifest.get("quality_warnings", 0) > 0:
+            emit("review_required", phase=0,
+                 flagged_count=manifest["quality_warnings"],
+                 path=str(config.project_dir))
         console.print(f"[green]✓[/] Phase 0 complete — {len(manifest['files'])} files, "
                       f"{manifest.get('quality_warnings', 0)} quality warnings")
     else:
@@ -140,6 +104,9 @@ def run_pipeline(config: Config, benchmark: bool = False, gui_mode: bool = False
 
             emit("phase_complete", phase=1, status="success",
                  processed=processed, failed=failed)
+            if failed > 0:
+                emit("review_required", phase=1,
+                     flagged_count=failed, path=str(config.project_dir))
             console.print("[green]✓[/] Phase 1 complete")
             console.print(f"  Processed: {processed} documents ({failed} failed)")
             console.print(f"  Output: {result.get('output_dir', 'N/A')}")
@@ -180,6 +147,9 @@ def run_pipeline(config: Config, benchmark: bool = False, gui_mode: bool = False
             else:
                 emit("phase_complete", phase=2, status="success",
                      processed=processed, failed=failed, svg=svg_count)
+                if failed > 0:
+                    emit("review_required", phase=2,
+                         flagged_count=failed, path=str(config.project_dir))
                 console.print("[green]✓[/] Phase 2 complete")
                 console.print(f"  Photos processed: {processed} ({failed} failed)")
                 console.print(f"  SVG drawings: {svg_count}")
@@ -232,6 +202,10 @@ def run_pipeline(config: Config, benchmark: bool = False, gui_mode: bool = False
                 console.print(f"\n[yellow]⚠  {len(triggers)} review trigger(s) fired:[/]")
                 for t in triggers[:5]:
                     console.print(f"  [yellow]•[/] [{t['section']}] {t['issue']}: {t['detail'][:80]}")
+
+            if triggers:
+                emit("review_required", phase=3,
+                     flagged_count=len(triggers), path=str(config.project_dir))
 
             ws.state.complete_phase(3, f"{len(sections)} sections from {result.get('model')}")
 
@@ -286,6 +260,11 @@ def run_pipeline(config: Config, benchmark: bool = False, gui_mode: bool = False
             if placeholders:
                 console.print(f"\n[yellow]ℹ  {placeholders} placeholder(s) need attention[/]")
 
+            flagged_4 = len(prohibited) + placeholders
+            if flagged_4 > 0:
+                emit("review_required", phase=4,
+                     flagged_count=flagged_4, path=str(config.project_dir))
+
             ws.state.complete_phase(4, f"{len(sections)} sections, {len(missing)} missing, {len(prohibited)} prohibited terms")
 
         except RuntimeError as e:
@@ -322,8 +301,7 @@ def run_pipeline(config: Config, benchmark: bool = False, gui_mode: bool = False
 
 def run_single_phase(config: Config, phase: int, gui_mode: bool = False) -> None:
     """Run exactly one phase."""
-    global _gui_mode
-    _gui_mode = gui_mode
+    set_gui_mode(gui_mode)
 
     ws = Workspace(config.project_dir)
     ws.ensure_dirs()

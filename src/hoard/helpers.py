@@ -6,9 +6,12 @@ Centralises duplicate functions previously copied across phase3.py and phase5.py
 inference requests through the provider abstraction (audit logging, cost
 tracking, provider selection) instead of raw requests.post() calls.
 
+Also provides the GUI-mode event system (emit, set_gui_mode) used by the
+CLI pipeline and phases to emit structured JSON events for desktop GUI tools.
+
 exports: load_json_safe, find_json_files, evict_ollama_model,
-         generate_via_provider, OLLAMA_BASE_URL
-used_by: hoard.phases.phase1, phase2, phase3, phase4, phase5
+         generate_via_provider, emit, set_gui_mode, OLLAMA_BASE_URL
+used_by: hoard.phases.*, hoard.cli.run
 rules:   Must never import torch or any GPU-bound library.
 """
 
@@ -141,3 +144,54 @@ def generate_via_provider(
         "eval_duration": 0,
         **({"reasoning": reasoning} if reasoning else {}),
     }
+
+
+# ── GUI Mode Event System ────────────────────────────────────────────────
+# Shared across cli/run.py and phase modules. When enabled, emits structured
+# JSON events to stdout for parsing by desktop GUI tools (Trowel).
+
+_gui_mode = False
+
+
+def set_gui_mode(enabled: bool) -> None:
+    """Enable or disable GUI-mode event emission."""
+    global _gui_mode
+    _gui_mode = enabled
+
+
+def emit(event_type: str, phase: int | None = None, **data: Any) -> None:
+    """Emit a pipeline event.
+
+    In normal mode: prints Rich-formatted console output (imported lazily).
+    In gui-mode: prints a JSON line to stdout for Trowel to consume.
+
+    Callable from any phase module for progress events.
+    """
+    if _gui_mode:
+        payload: dict[str, Any] = {"event": event_type}
+        if phase is not None:
+            payload["phase"] = phase
+        payload.update(data)
+        print(json.dumps(payload, default=str))
+        return
+
+    # Rich-formatted output for normal (terminal) mode
+    from rich.console import Console
+    console = Console()
+
+    if event_type == "phase_start":
+        console.print(f"[blue]→[/] Phase {phase}: {data.get('name', '')}")
+    elif event_type == "phase_skip":
+        console.print(f"[dim]Phase {phase}: already complete (skipping)[/]")
+    elif event_type == "phase_complete":
+        console.print(f"[green]✓[/] Phase {phase} complete.")
+    elif event_type == "phase_error":
+        console.print(f"[red]✗[/] Phase {phase} error: {data.get('error', '')}")
+        if "hint" in data:
+            console.print(f"  {data['hint']}")
+    elif event_type == "pipeline_halt":
+        console.print(f"[red]✗[/] {data.get('reason', 'Pipeline halted')}")
+    elif event_type == "info":
+        msg = data.get("message", "")
+        if msg:
+            console.print(msg)

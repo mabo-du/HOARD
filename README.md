@@ -72,6 +72,7 @@ hoard templates list
 |---------|-------------|
 | `hoard init <name>` | Initialise a new project |
 | `hoard run --project <id>` | Run the pipeline (full or partial) |
+| `hoard run --project <id> --gui-mode` | Run the pipeline emitting structured JSON events for GUI integration |
 | `hoard run --project <id> --phase <N>` | Run a single phase |
 | `hoard run --project <id> --from-phase <N>` | Run from phase N onward |
 | `hoard run --project <id> --strict` | Halt Phase 1 on schema validation failure |
