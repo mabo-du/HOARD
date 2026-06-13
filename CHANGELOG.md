@@ -6,6 +6,15 @@ All notable changes to HOARD are documented here. This project follows
 
 ## [Unreleased]
 
+### Added
+
+- **`--gui-mode` flag for `hoard review`** — the review command now
+  accepts `--gui-mode`, which emits each flagged `ReviewItem` as a
+  structured JSON event to stdout (one per line), followed by a
+  `review_workspace` event with directory paths and a `review_complete`
+  tally. Desktop GUI tools can load flagged items, collect user decisions,
+  and write corrections back directly to the workspace files.
+
 ## [0.3.7] — 2026-06-14
 
 ### Added

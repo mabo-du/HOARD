@@ -274,7 +274,7 @@ jobs:
           # Extract relevant CHANGELOG section for this version
           VERSION_MARKER="## [${VERSION}]"
           awk -v marker="$VERSION_MARKER" '
-            $0 ~ marker { found=1; next }
+            index($0, marker) { found=1; next }
             found && /^## \[/ { exit }
             found { print }
           ' CHANGELOG.md >> RELEASE_NOTES.md || echo "_See CHANGELOG.md for details._" >> RELEASE_NOTES.md

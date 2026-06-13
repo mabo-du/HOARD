@@ -17,7 +17,9 @@ rules:   All subcommands must produce a non-error help message when their
 agent:   deepseek-v4-flash | 2026-05-09 | s_20260509_001 | Initial scaffold
 """
 
+import json
 from pathlib import Path
+from typing import Any
 
 import typer
 import yaml
@@ -25,10 +27,11 @@ from rich.console import Console
 from rich.table import Table
 
 from hoard import __version__
-from hoard.config import Config, init_project_config
-from hoard.cli.run import run_pipeline, run_single_phase
-from hoard.templates.engine import TemplateEngine
 from hoard.cli.keys import keys_app
+from hoard.cli.run import run_pipeline, run_single_phase
+from hoard.config import Config, init_project_config
+from hoard.helpers import emit as hoard_emit, set_gui_mode
+from hoard.templates.engine import TemplateEngine
 
 app = typer.Typer(
     name="hoard",
@@ -238,8 +241,20 @@ def review(
         False, "--reset", "-r",
         help="Reset all review decisions and start fresh",
     ),
+    gui_mode: bool = typer.Option(
+        False, "--gui-mode",
+        help="Suppress Rich console output; emit structured JSON events to stdout",
+    ),
 ) -> None:
-    """Open the review dashboard for flagged items."""
+    """Open the review dashboard for flagged items.
+
+    In normal mode: runs an interactive TUI for the site director to
+    accept, correct, or defer flagged items.
+
+    In --gui-mode: emits each flagged item as a JSON event to stdout
+    for consumption by desktop GUI tools (Trowel). Use --apply-decisions
+    to write corrections back after GUI-side review.
+    """
     workspace_root = Path(workspace).resolve()
     cfg = Config(
         project_id=project,
@@ -254,17 +269,73 @@ def review(
         console.print("  Initialise it first with: [bold]hoard init --name '...' --project {project}[/]")
         raise typer.Exit(1)
 
-    from hoard.review import ReviewSession
+    from hoard.review import ReviewItem, ReviewSession
 
     session = ReviewSession(cfg)
     session.load()
 
     if session.total == 0:
-        console.print(f"[yellow]ℹ[/] No flagged items found for project '{project}'.")
-        console.print("  Run [bold]hoard run --project {project} --phase 0[/] first to generate a manifest.")
+        if gui_mode:
+            # Emit empty review event so Trowel knows there's nothing to do
+            print('{"event": "review_start", "total": 0}')
+            print('{"event": "review_complete", "accepted": 0, "corrected": 0, "deferred": 0, "pending": 0}')
+        else:
+            console.print(f"[yellow]ℹ[/] No flagged items found for project '{project}'.")
+            console.print("  Run [bold]hoard run --project {project} --phase 0[/] first to generate a manifest.")
         return
 
-    session.run_interactive()
+    if gui_mode:
+        _run_review_gui_mode(session)
+    else:
+        session.run_interactive()
+
+
+def _run_review_gui_mode(session: Any) -> None:
+    """Emit review items as JSON events to stdout for GUI tools."""
+    from hoard.review import ReviewDecision
+
+    print(f'{{"event": "review_start", "total": {session.total}}}')
+
+    for item in session.items:
+        print(json.dumps({
+            "event": "review_item",
+            "item_id": item.item_id,
+            "phase": item.phase,
+            "source": item.source.value,
+            "source_file": item.source_file,
+            "field": item.field,
+            "issue": item.issue,
+            "confidence": item.confidence,
+            "current_value": item.current_value,
+            "corrected_value": item.corrected_value,
+            "decision": item.decision.value,
+            "notes": item.notes,
+        }, default=str))
+
+    # Tally current state
+    accepted = sum(1 for i in session.items if i.decision == ReviewDecision.ACCEPTED)
+    corrected = sum(1 for i in session.items if i.decision == ReviewDecision.CORRECTED)
+    deferred = sum(1 for i in session.items if i.decision == ReviewDecision.DEFERRED)
+    pending = sum(1 for i in session.items if i.decision == ReviewDecision.PENDING)
+
+    print(json.dumps({
+        "event": "review_complete",
+        "accepted": accepted,
+        "corrected": corrected,
+        "deferred": deferred,
+        "pending": pending,
+    }))
+
+    # Emit the workspace path so Trowel can write decisions back directly
+    print(json.dumps({
+        "event": "review_workspace",
+        "project_dir": str(session.ws.path),
+        "manifest_dir": str(session.config.manifest_dir),
+        "digitised_dir": str(session.config.digitised_dir),
+        "spatial_dir": str(session.config.spatial_dir),
+        "draft_dir": str(session.config.draft_dir),
+        "refined_dir": str(session.config.refined_dir),
+    }))
 
 
 @app.command()
