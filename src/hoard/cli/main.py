@@ -124,6 +124,10 @@ def run(
         "./hoard_workspace", "--workspace", "-w",
         help="Working directory root",
     ),
+    gui_mode: bool = typer.Option(
+        False, "--gui-mode",
+        help="Suppress Rich console output; emit structured JSON events to stdout",
+    ),
 ) -> None:
     """Run the pipeline (full or partial)."""
     workspace_root = Path(workspace).resolve()
@@ -141,9 +145,9 @@ def run(
     )
 
     if phase is not None:
-        run_single_phase(cfg, phase)
+        run_single_phase(cfg, phase, gui_mode=gui_mode)
     else:
-        run_pipeline(cfg)
+        run_pipeline(cfg, gui_mode=gui_mode)
 
 
 @app.command(name="import-ark")

@@ -6,6 +6,22 @@ All notable changes to HOARD are documented here. This project follows
 
 ## [Unreleased]
 
+## [0.3.7] — 2026-06-14
+
+### Added
+
+- **`--gui-mode` flag** — `hoard run` now accepts `--gui-mode` which
+  suppresses Rich console output and emits structured JSON events to
+  stdout. Each pipeline milestone (phase start/complete/error/skip)
+  produces a JSON line consumable by desktop GUI tools (Trowel).
+  Event types: `phase_start`, `phase_skip`, `phase_complete`,
+  `phase_error`, `pipeline_halt`. This is the architectural boundary
+  for all future GUI integration.
+- **Research synthesis** — `docs/research-prompts/ux-research-synthesis.md`
+  resolves two deep-research reports on CLI-to-GUI accessibility.
+  Pivotal fact confirmed: Trowel has standalone PyInstaller builds,
+  making Trowel integration the right first GUI move.
+
 ## [0.3.0] — 2026-06-12
 
 ### Added
@@ -228,7 +244,8 @@ All notable changes to HOARD are documented here. This project follows
 - **E2E test datasets** — Pinn Brook Park (49 contexts, CC-BY 4.0), A14
   Cambridge to Huntingdon (99 contexts), Gallows Hill (50-70 contexts).
 
-[Unreleased]: https://github.com/mabo-du/HOARD/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/mabo-du/HOARD/compare/v0.3.7...HEAD
+[0.3.7]: https://github.com/mabo-du/HOARD/compare/v0.3.6...v0.3.7
 [0.3.0]: https://github.com/mabo-du/HOARD/compare/v0.2.3...v0.3.0
 [0.2.3]: https://github.com/mabo-du/HOARD/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/mabo-du/HOARD/compare/v0.2.1...v0.2.2

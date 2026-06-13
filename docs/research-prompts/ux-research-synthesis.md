@@ -57,3 +57,13 @@ Either way →
 ## Verdict
 
 The two reports don't conflict — they make different bets on one unknown. The single factual question (does Trowel ship standalone builds?) determines which bet is correct. Everything else — FastAPI + HTMX, `--gui-mode`, ultra-light tier prominence, SSE for progress, system keychain vault — is consensus and should be treated as design direction regardless of the Trowel decision.
+
+---
+
+## Update 2026-06-14: Pivotal Fact Confirmed
+
+**Trowel has standalone PyInstaller builds.** The Trowel project has a complete build pipeline at `.github/workflows/build.yml` that uses `pyinstaller trowel.spec --noconfirm` to produce platform executables for Linux, Windows, and macOS. These are uploaded to GitHub Releases as `.tar.gz` packages.
+
+This confirms Report 2's assumption was correct. The divergence is resolved in favour of **Trowel integration as the first GUI move** (estimated 2-3 developer-weeks). Report 1's web wrapper drops to a secondary option for users without Trowel.
+
+The `--gui-mode` flag is under implementation on the HOARD side (v0.3.7 planned). Once that ships, Trowel integration can begin.

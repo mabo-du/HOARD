@@ -8,11 +8,14 @@ used_by: hoard.cli.main  → `hoard run` command
 rules:   Check PipelineState before running any phase. Skip completed
          phases unless --rerun-phase is set. Never load two models
          into VRAM simultaneously.
+         In --gui-mode, emits structured JSON events to stdout for
+         parsing by desktop GUI tools (Trowel).
 agent:   deepseek-v4-flash | 2026-05-09 | s_20260509_001 | Initial scaffold
 """
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from rich.console import Console
@@ -34,12 +37,56 @@ except ImportError:
 
 console = Console()
 
+# ── GUI Mode Event System ────────────────────────────────────────────────
+# When --gui-mode is active, the pipeline emits structured JSON events to
+# stdout instead of Rich-formatted console output. Desktop tools like Trowel
+# consume these JSON lines to map pipeline progress to native UI elements.
 
-def run_pipeline(config: Config, benchmark: bool = False) -> None:
+_gui_mode = False
+
+def emit(event_type: str, phase: int | None = None, **data: Any) -> None:
+    """Emit a pipeline event.
+
+    In normal mode: prints Rich-formatted console output.
+    In gui-mode: prints a JSON line to stdout for Trowel to consume.
+    """
+    if _gui_mode:
+        payload: dict[str, Any] = {"event": event_type}
+        if phase is not None:
+            payload["phase"] = phase
+        payload.update(data)
+        print(json.dumps(payload, default=str))
+        return
+
+    # Rich-formatted output for normal (terminal) mode
+    if event_type == "phase_start":
+        console.print(f"[blue]→[/] Phase {phase}: {data.get('name', '')}")
+    elif event_type == "phase_skip":
+        console.print(f"[dim]Phase {phase}: already complete (skipping)[/]")
+    elif event_type == "phase_complete":
+        console.print(f"[green]✓[/] Phase {phase} complete.")
+    elif event_type == "phase_error":
+        console.print(f"[red]✗[/] Phase {phase} error: {data.get('error', '')}")
+        if "hint" in data:
+            console.print(f"  {data['hint']}")
+    elif event_type == "pipeline_halt":
+        console.print(f"[red]✗[/] {data.get('reason', 'Pipeline halted')}")
+    elif event_type == "info":
+        msg = data.get("message", "")
+        if msg:
+            console.print(msg)
+
+
+def run_pipeline(config: Config, benchmark: bool = False, gui_mode: bool = False) -> None:
     """Run all phases sequentially, respecting pipeline state.
 
     If benchmark=True, wraps each GPU phase with VRAM profiling.
+    If gui_mode=True, emits structured JSON events to stdout instead of
+    Rich-formatted console output.
     """
+    global _gui_mode
+    _gui_mode = gui_mode
+
     ws = Workspace(config.project_dir)
     ws.ensure_dirs()
 
@@ -58,22 +105,27 @@ def run_pipeline(config: Config, benchmark: bool = False) -> None:
 
     # Phase 0
     if not ws.state.is_phase_complete(0):
-        console.print("[blue]→[/] Phase 0: Ingestion & Triage")
+        emit("phase_start", phase=0, name="Ingestion & Triage")
         manifest = run_phase0(config)
         if manifest.get("halt"):
+            emit("pipeline_halt", phase=0, reason="Phase 0 checks failed")
             console.print("[red]✗[/] Pipeline halted by Phase 0 checks.")
             _print_halt_reasons(manifest)
             ws.state.fail_phase(0, "Halt conditions triggered")
             return
         ws.state.complete_phase(0, f"{len(manifest['files'])} files processed")
+        emit("phase_complete", phase=0, status="success",
+             files=len(manifest["files"]),
+             quality_warnings=manifest.get("quality_warnings", 0))
         console.print(f"[green]✓[/] Phase 0 complete — {len(manifest['files'])} files, "
                       f"{manifest.get('quality_warnings', 0)} quality warnings")
     else:
+        emit("phase_skip", phase=0, name="Ingestion & Triage")
         console.print("[dim]Phase 0: already complete (skipping)[/]")
 
     # Phase 1 (Multi-Modal Digitisation — GLM-OCR + Docling)
     if not ws.state.is_phase_complete(1):
-        console.print("[blue]→[/] Phase 1: Multi-Modal Digitisation")
+        emit("phase_start", phase=1, name="Multi-Modal Digitisation")
         try:
             result = _profile_phase("phase1", run_phase1, config)
             status = result.get("status", "failed")
@@ -81,10 +133,13 @@ def run_pipeline(config: Config, benchmark: bool = False) -> None:
             failed = result.get("failed", 0)
 
             if status == "failed":
+                emit("phase_error", phase=1, error=result.get("error", "Unknown error"))
                 console.print(f"[red]✗[/] Phase 1 failed: {result.get('error', 'Unknown error')}")
                 ws.state.fail_phase(1, result.get("error", ""))
                 return
 
+            emit("phase_complete", phase=1, status="success",
+                 processed=processed, failed=failed)
             console.print("[green]✓[/] Phase 1 complete")
             console.print(f"  Processed: {processed} documents ({failed} failed)")
             console.print(f"  Output: {result.get('output_dir', 'N/A')}")
@@ -94,16 +149,18 @@ def run_pipeline(config: Config, benchmark: bool = False) -> None:
             ws.state.complete_phase(1, f"{processed} documents digitised, {failed} failed")
 
         except RuntimeError as e:
+            emit("phase_error", phase=1, error=str(e), hint="Ensure Ollama is running")
             console.print(f"[red]✗[/] Phase 1 error: {e}")
             console.print("  Ensure Ollama is running: [bold]ollama serve[/]")
             ws.state.fail_phase(1, str(e))
             return
     else:
+        emit("phase_skip", phase=1, name="Multi-Modal Digitisation")
         console.print("[dim]Phase 1: already complete (skipping)[/]")
 
     # Phase 2 (Spatial Reconstruction — Florence-2 + Qwen3-VL-4B)
     if not ws.state.is_phase_complete(2):
-        console.print("[blue]→[/] Phase 2: Spatial Reconstruction")
+        emit("phase_start", phase=2, name="Spatial Reconstruction")
         try:
             result = _profile_phase("phase2", run_phase2, config)
             status = result.get("status", "error")
@@ -112,13 +169,17 @@ def run_pipeline(config: Config, benchmark: bool = False) -> None:
             svg_count = result.get("svg_generated", 0)
 
             if status == "failed":
+                emit("phase_error", phase=2, error=result.get("error", "Unknown error"))
                 console.print(f"[red]✗[/] Phase 2 failed: {result.get('error', 'Unknown error')}")
                 ws.state.fail_phase(2, result.get("error", ""))
                 return
             if status == "skipped":
+                emit("phase_skip", phase=2, name="Spatial Reconstruction", reason="no images")
                 console.print("[yellow]ℹ[/] Phase 2: no images in assets/ — skipping")
                 ws.state.complete_phase(2, "Skipped — no images found")
             else:
+                emit("phase_complete", phase=2, status="success",
+                     processed=processed, failed=failed, svg=svg_count)
                 console.print("[green]✓[/] Phase 2 complete")
                 console.print(f"  Photos processed: {processed} ({failed} failed)")
                 console.print(f"  SVG drawings: {svg_count}")
@@ -129,24 +190,30 @@ def run_pipeline(config: Config, benchmark: bool = False) -> None:
                 )
 
         except RuntimeError as e:
+            emit("phase_error", phase=2, error=str(e), hint="Ensure Ollama is running")
             console.print(f"[red]✗[/] Phase 2 error: {e}")
             console.print("  Ensure Ollama is running: [bold]ollama serve[/]")
             ws.state.fail_phase(2, str(e))
             return
     else:
+        emit("phase_skip", phase=2, name="Spatial Reconstruction")
         console.print("[dim]Phase 2: already complete (skipping)[/]")
 
     # Phase 3 (Synthesis & Drafting — using Ollama)
     if not ws.state.is_phase_complete(3):
-        console.print("[blue]→[/] Phase 3: Synthesis & Drafting")
+        emit("phase_start", phase=3, name="Synthesis & Drafting")
         try:
             result = _profile_phase("phase3", run_phase3, config)
             if result.get("status") == "failed":
+                emit("phase_error", phase=3, error=result.get("error", "Unknown error"))
                 console.print(f"[red]✗[/] Phase 3 failed: {result.get('error', 'Unknown error')}")
                 ws.state.fail_phase(3, result.get("error", "Unknown error"))
                 return
 
             sections = result.get("sections", {})
+            emit("phase_complete", phase=3, status="success",
+                 sections=len(sections), model=result.get("model"),
+                 tokens=result.get("total_tokens", 0))
             console.print(f"[green]✓[/] Phase 3 complete — {len(sections)} sections generated")
             console.print(f"  Model: {result.get('model')}")
             console.print(f"  Draft: {result.get('draft_path')}")
@@ -169,19 +236,22 @@ def run_pipeline(config: Config, benchmark: bool = False) -> None:
             ws.state.complete_phase(3, f"{len(sections)} sections from {result.get('model')}")
 
         except RuntimeError as e:
+            emit("phase_error", phase=3, error=str(e), hint="Ensure Ollama is running")
             console.print(f"[red]✗[/] Phase 3 error: {e}")
             console.print("  Ensure Ollama is running: [bold]ollama serve[/]")
             ws.state.fail_phase(3, str(e))
             return
     else:
+        emit("phase_skip", phase=3, name="Synthesis & Drafting")
         console.print("[dim]Phase 3: already complete (skipping)[/]")
 
     # Phase 4 (Compliance Refinement — using Gemma 4 via Ollama)
     if not ws.state.is_phase_complete(4):
-        console.print("[blue]→[/] Phase 4: Compliance Refinement")
+        emit("phase_start", phase=4, name="Compliance Refinement")
         try:
             result = _profile_phase("phase4", run_phase4, config)
             if result.get("status") == "no_draft":
+                emit("phase_error", phase=4, error=result.get("error", "No draft found"))
                 console.print(f"[yellow]ℹ[/] {result.get('error', 'No draft found')}")
                 ws.state.fail_phase(4, "No Phase 3 draft available")
                 return
@@ -191,6 +261,9 @@ def run_pipeline(config: Config, benchmark: bool = False) -> None:
             placeholders = result.get("placeholder_count", 0)
             prohibited = result.get("prohibited_flags", [])
 
+            emit("phase_complete", phase=4, status="success",
+                 sections=len(sections), missing=len(missing),
+                 prohibited=len(prohibited), placeholders=placeholders)
             console.print(f"[green]✓[/] Phase 4 complete — {len(sections)} sections processed")
             console.print(f"  Template: {result.get('template')} v{result.get('template_version')}")
             console.print(f"  Compliant report: {result.get('compliant_path')}")
@@ -216,33 +289,42 @@ def run_pipeline(config: Config, benchmark: bool = False) -> None:
             ws.state.complete_phase(4, f"{len(sections)} sections, {len(missing)} missing, {len(prohibited)} prohibited terms")
 
         except RuntimeError as e:
+            emit("phase_error", phase=4, error=str(e), hint="Ensure Ollama is running")
             console.print(f"[red]✗[/] Phase 4 error: {e}")
             console.print("  Ensure Ollama is running: [bold]ollama serve[/]")
             ws.state.fail_phase(4, str(e))
             return
     else:
+        emit("phase_skip", phase=4, name="Compliance Refinement")
         console.print("[dim]Phase 4: already complete (skipping)[/]")
 
     # Phase 5 (rule-based, available now)
     if not ws.state.is_phase_complete(5):
-        console.print("[blue]→[/] Phase 5: Assembly & Export")
+        emit("phase_start", phase=5, name="Assembly & Export")
         try:
             result = run_phase5(config)
         except RuntimeError as e:
+            emit("phase_error", phase=5, error=str(e), hint="Check disk space and write permissions")
             console.print(f"[red]✗[/] Phase 5 failed: {e}")
             console.print("  Check disk space and write permissions.")
             ws.state.fail_phase(5, str(e))
             return
         ws.state.complete_phase(5, f"Report exported: {result.get('export_paths', {}).get('docx', 'N/A')}")
+        emit("phase_complete", phase=5, status="success",
+             export_paths=result.get("export_paths", {}))
         console.print("[green]✓[/] Phase 5 complete.")
         for fmt, path in result.get("export_paths", {}).items():
             console.print(f"  {fmt}: {path}")
     else:
+        emit("phase_skip", phase=5, name="Assembly & Export")
         console.print("[dim]Phase 5: already complete (skipping)[/]")
 
 
-def run_single_phase(config: Config, phase: int) -> None:
+def run_single_phase(config: Config, phase: int, gui_mode: bool = False) -> None:
     """Run exactly one phase."""
+    global _gui_mode
+    _gui_mode = gui_mode
+
     ws = Workspace(config.project_dir)
     ws.ensure_dirs()
 
@@ -256,29 +338,35 @@ def run_single_phase(config: Config, phase: int) -> None:
     }
 
     if phase not in phases:
+        emit("info", message=f"Phase {phase} is not yet implemented.")
         console.print(f"[yellow]ℹ[/] Phase {phase} is not yet implemented.")
         return
 
     name, fn = phases[phase]
+    emit("phase_start", phase=phase, name=name)
     console.print(f"[blue]→[/] Phase {phase}: {name}")
     try:
         result = fn()
     except RuntimeError as e:
+        emit("phase_error", phase=phase, error=str(e))
         console.print(f"[red]✗[/] Phase {phase} failed: {e}")
         ws.state.fail_phase(phase, str(e))
         return
     except Exception as e:
+        emit("phase_error", phase=phase, error=str(e))
         console.print(f"[red]✗[/] Phase {phase} failed with unexpected error: {e}")
         ws.state.fail_phase(phase, str(e))
         return
 
     if isinstance(result, dict) and result.get("halt"):
+        emit("pipeline_halt", phase=phase, reason="Phase 0 checks failed")
         console.print("[red]✗[/] Pipeline halted by Phase 0 checks.")
         _print_halt_reasons(result)
         ws.state.fail_phase(phase, "Halt conditions triggered")
         return
 
     ws.state.complete_phase(phase, f"Phase {phase} run complete")
+    emit("phase_complete", phase=phase, status="success")
     console.print(f"[green]✓[/] Phase {phase} complete.")
 
 
