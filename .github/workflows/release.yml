@@ -25,7 +25,7 @@ jobs:
         run: uvx --from build pyproject-build --outdir dist/
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: dist-sdist
           path: dist/
@@ -101,7 +101,7 @@ jobs:
             src/hoard/__main__.py
 
       - name: Upload executable
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: hoard-linux-x86_64
           path: dist/hoard-linux
@@ -161,7 +161,7 @@ jobs:
             src/hoard/__main__.py
 
       - name: Upload executable
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: hoard-macos-arm64
           path: dist/hoard-macos
@@ -218,7 +218,7 @@ jobs:
             src/hoard/__main__.py
 
       - name: Upload executable
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: hoard-windows-x86_64
           path: dist/hoard.exe
