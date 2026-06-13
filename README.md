@@ -92,12 +92,12 @@ HOARD is one component of a broader heritage science open-source ecosystem:
 
 | Tool | Function | Integration |
 |------|----------|-------------|
-| **StratiGraph** | Interactive Harris Matrix editor (Tauri 2 + React) | [Shared JSON Schema](schemas/heritage-data-package-v1.json) — HOARD Phase 1 exports import directly |
-| **Trowel** | Desktop report drafter (PyQt6) | Bidirectional JSON import/export, shared jurisdiction templates |
-| **Libby** | Radiocarbon calibration (FastAPI + Svelte 5) | StratiGraph exports OxCal CQL / JSON payloads to Libby |
-| **Cache & Carry** | Offline collections management (Tauri + Rust) | Getty AAT/ULAN/TGN vocabulary for term normalisation |
-| **Dibble** | 3D lithic analysis (Python + PyVista) | Specialist finds appendix data via JSON bridge |
-| **heritage-cli** | Unified ecosystem CLI | `heritage run/calibrate/lithics/review/matrix/publish` |
+| **[StratiGraph](https://github.com/mabo-du/stratigraph)** | Interactive Harris Matrix editor (Tauri 2 + React) | [Shared JSON Schema](schemas/heritage-data-package-v1.json) — HOARD Phase 1 exports import directly |
+| **[Trowel](https://github.com/mabo-du/trowel)** | Desktop report drafter (PyQt6) | Bidirectional JSON import/export, shared jurisdiction templates |
+| **[Libby](https://github.com/mabo-du/libby)** | Radiocarbon calibration (FastAPI + Svelte 5) | StratiGraph exports OxCal CQL / JSON payloads to Libby |
+| **[Cache & Carry](https://github.com/mabo-du/cache-and-carry)** | Offline collections management (Tauri + Rust) | Getty AAT/ULAN/TGN vocabulary for term normalisation |
+| **[Dibble](https://github.com/mabo-du/dibble)** | 3D lithic analysis (Python + PyVista) | Specialist finds appendix data via JSON bridge |
+| **[heritage-cli](https://github.com/mabo-du/heritage-cli)** | Unified ecosystem CLI | `heritage run/calibrate/lithics/review/matrix/publish` |
 
 ## Jurisdiction Templates
 
