@@ -66,4 +66,50 @@ The two reports don't conflict — they make different bets on one unknown. The 
 
 This confirms Report 2's assumption was correct. The divergence is resolved in favour of **Trowel integration as the first GUI move** (estimated 2-3 developer-weeks). Report 1's web wrapper drops to a secondary option for users without Trowel.
 
-The `--gui-mode` flag is under implementation on the HOARD side (v0.3.7 planned). Once that ships, Trowel integration can begin.
+The `--gui-mode` flag shipped in v0.3.7 with 9 event types (phase_start,
+progress, phase_complete, phase_error, phase_skip, review_required,
+pipeline_halt, info). The event schema is documented in CHANGELOG.md.
+
+---
+
+## Final Contract: HOARD ↔ Trowel GUI-Mode Protocol
+
+Implemented in HOARD v0.3.8. Trowel side ready for implementation.
+
+### Subprocess lifecycle
+
+```
+Trowel spawns:     hoard run --project X --gui-mode
+HOARD emits:       events including review_required(phase=N)
+HOARD exits:       after pipeline completes or halts
+                   
+Trowel collects:   all review_required phase numbers
+User reviews:      phases in Trowel modal, writes decisions
+Trowel re-spawns:  hoard run --project X --gui-mode --from-phase <min>
+(min = earliest phase that had review items — single pass forward)
+```
+
+### Event schema (v1)
+
+| Event | Payload | When |
+|-------|---------|------|
+| `phase_start` | phase, name | Phase begins |
+| `progress` | phase, current, total, item | Per-item progress in Phase 1/2 |
+| `phase_complete` | phase, status, metrics | Phase succeeds |
+| `phase_error` | phase, error, hint | Phase fails |
+| `phase_skip` | phase, name | Already complete |
+| `review_required` | phase, flagged_count, path | Flagged items exist (0-4) |
+| `pipeline_halt` | reason | Fatal failure |
+| `info` | message | Generic message |
+
+### Key behaviours
+
+- **Batch review**: Pipeline runs to completion, emitting review_required
+  events. Trowel collects all affected phases, reviews them after exit.
+- **Single re-spawn**: After review, Trowel spawns once with
+  `--from-phase <min>` where min is the earliest phase with review items.
+  This avoids re-processing un-affected phases.
+- **No blocking**: HOARD never blocks for review input in gui-mode.
+  It exits cleanly. Trowel manages the entire review lifecycle.
+- **Ultra-light ready**: All events work identically with cloud-only
+  inference — no GPU or Ollama required.
