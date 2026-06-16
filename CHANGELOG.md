@@ -4,6 +4,33 @@ All notable changes to HOARD are documented here. This project follows
 [Semantic Versioning](https://semver.org/) and the format is based on
 [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.3.9] — 2026-06-16
+
+### Added
+
+- **CHANGELOG updated** — comprehensive entries for v0.3.8 (test
+  coverage, router fix, protocol docs) and v0.3.9 (doc updates,
+  release cycle).
+- **Release notes integration** — fixed awk script in `release.yml`
+  to properly extract CHANGELOG sections (bracket-safe `index()`
+  matching). Future releases will automatically include CHANGELOG
+  content as release notes.
+
+### Changed
+
+- **README updated** — `--gui-mode` flag documented in CLI reference,
+  `pip install hoard-erd` corrected, privacy claim updated to reflect
+  cloud provider availability.
+- **User guide updated** — install command and multi-provider AI
+  section updated for provider abstraction integration.
+
+### Fixed
+
+- **Router credential handling** — gracefully skips cloud providers
+  without configured credentials, falling back to next in chain.
+- **generate_via_provider Ollama fallback** — direct provider call
+  when router's tier excludes local models.
+
 ## [0.3.8] — 2026-06-14
 
 ### Added
@@ -290,7 +317,8 @@ All notable changes to HOARD are documented here. This project follows
 - **E2E test datasets** — Pinn Brook Park (49 contexts, CC-BY 4.0), A14
   Cambridge to Huntingdon (99 contexts), Gallows Hill (50-70 contexts).
 
-[Unreleased]: https://github.com/mabo-du/HOARD/compare/v0.3.8...HEAD
+[Unreleased]: https://github.com/mabo-du/HOARD/compare/v0.3.9...HEAD
+[0.3.9]: https://github.com/mabo-du/HOARD/compare/v0.3.8...v0.3.9
 [0.3.8]: https://github.com/mabo-du/HOARD/compare/v0.3.7...v0.3.8
 [0.3.7]: https://github.com/mabo-du/HOARD/compare/v0.3.6...v0.3.7
 [0.3.0]: https://github.com/mabo-du/HOARD/compare/v0.2.3...v0.3.0
