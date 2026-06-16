@@ -333,13 +333,22 @@ class ProviderRouter:
         if provider == "ollama":
             return OllamaProvider(model_name=model)
         elif provider == "openai":
-            key = self._get_key("openai", selection.profile)
+            try:
+                key = self._get_key("openai", selection.profile)
+            except AuthenticationError:
+                raise ProviderError("OpenAI credentials not available (vault locked or no key set)")
             return OpenAIProvider(model_name=model, api_key=key)
         elif provider == "anthropic":
-            key = self._get_key("anthropic", selection.profile)
+            try:
+                key = self._get_key("anthropic", selection.profile)
+            except AuthenticationError:
+                raise ProviderError("Anthropic credentials not available (vault locked or no key set)")
             return AnthropicProvider(model_name=model, api_key=key)
         elif provider == "google":
-            key = self._get_key("google", selection.profile)
+            try:
+                key = self._get_key("google", selection.profile)
+            except AuthenticationError:
+                raise ProviderError("Google credentials not available (vault locked or no key set)")
             return GoogleProvider(model_name=model, api_key=key)
         else:
             raise ProviderError(f"Unknown provider: '{provider}'")

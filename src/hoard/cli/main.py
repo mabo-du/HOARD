@@ -30,7 +30,6 @@ from hoard import __version__
 from hoard.cli.keys import keys_app
 from hoard.cli.run import run_pipeline, run_single_phase
 from hoard.config import Config, init_project_config
-from hoard.helpers import emit as hoard_emit, set_gui_mode
 from hoard.templates.engine import TemplateEngine
 
 app = typer.Typer(
@@ -269,7 +268,7 @@ def review(
         console.print("  Initialise it first with: [bold]hoard init --name '...' --project {project}[/]")
         raise typer.Exit(1)
 
-    from hoard.review import ReviewItem, ReviewSession
+    from hoard.review import ReviewSession
 
     session = ReviewSession(cfg)
     session.load()

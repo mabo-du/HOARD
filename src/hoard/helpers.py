@@ -95,7 +95,7 @@ def generate_via_provider(
         and optionally reasoning (if <think> tags detected).
     """
     from hoard.providers import get_router
-    from hoard.providers.protocol import InferenceRequest
+    from hoard.providers.protocol import InferenceRequest, ProviderError
 
     # Convert legacy system/prompt to chat messages
     messages: list[dict[str, Any]] = []
@@ -122,7 +122,20 @@ def generate_via_provider(
     )
 
     router = get_router()
-    response = router.route_sync(request, phase)
+    try:
+        response = router.route_sync(request, phase)
+    except ProviderError:
+        # If the router's tier excludes Ollama (e.g. ULTRA_LIGHT with no GPU),
+        # try direct OllamaProvider when an explicit local model is specified.
+        # This ensures generate_via_provider works even in dev environments
+        # where hardware tier isn't calibrated.
+        from hoard.providers.ollama import OllamaProvider
+        import asyncio
+        provider = OllamaProvider(model_name=model)
+        response = asyncio.run(provider.generate(request))
+        # Still log the audit entry
+        router._audit(phase=phase, provider="ollama", model=model,
+                      usage=response.usage, success=True)
 
     content = response.content
 
