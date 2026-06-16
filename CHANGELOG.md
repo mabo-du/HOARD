@@ -4,7 +4,7 @@ All notable changes to HOARD are documented here. This project follows
 [Semantic Versioning](https://semver.org/) and the format is based on
 [Keep a Changelog](https://keepachangelog.com/).
 
-## [Unreleased]
+## [0.3.8] — 2026-06-14
 
 ### Added
 
@@ -14,6 +14,25 @@ All notable changes to HOARD are documented here. This project follows
   `review_workspace` event with directory paths and a `review_complete`
   tally. Desktop GUI tools can load flagged items, collect user decisions,
   and write corrections back directly to the workspace files.
+- **Test coverage** — 27 new tests for the gui-mode event schema (all 9
+  event types with field validation), `generate_via_provider` response
+  parsing (mocked), `load_json_safe`, and `find_json_files`.
+- **GUI-mode protocol docs** — `docs/gui-mode-protocol.md` documents the
+  HOARD–Trowel subprocess lifecycle, event schema, batch-at-end review
+  contract, and parsing rules.
+
+### Fixed
+
+- **Router credential handling** — provider chain now gracefully skips
+  cloud providers (OpenAI, Anthropic, Google) whose credentials aren't
+  available, instead of raising `AuthenticationError` and blocking the
+  pipeline. Falls back to the next provider in the chain.
+- **generate_via_provider Ollama fallback** — when the router's hardware
+  tier excludes local models (e.g. `ULTRA_LIGHT` in development), the
+  helper falls back to a direct `OllamaProvider` call with audit logging.
+- **Release notes CHANGELOG extraction** — fixed awk regex bracket issue
+  in `release.yml` (`$0 ~ marker` → `index($0, marker)`) so release
+  notes correctly include the version's CHANGELOG section.
 
 ## [0.3.7] — 2026-06-14
 
@@ -271,7 +290,8 @@ All notable changes to HOARD are documented here. This project follows
 - **E2E test datasets** — Pinn Brook Park (49 contexts, CC-BY 4.0), A14
   Cambridge to Huntingdon (99 contexts), Gallows Hill (50-70 contexts).
 
-[Unreleased]: https://github.com/mabo-du/HOARD/compare/v0.3.7...HEAD
+[Unreleased]: https://github.com/mabo-du/HOARD/compare/v0.3.8...HEAD
+[0.3.8]: https://github.com/mabo-du/HOARD/compare/v0.3.7...v0.3.8
 [0.3.7]: https://github.com/mabo-du/HOARD/compare/v0.3.6...v0.3.7
 [0.3.0]: https://github.com/mabo-du/HOARD/compare/v0.2.3...v0.3.0
 [0.2.3]: https://github.com/mabo-du/HOARD/compare/v0.2.2...v0.2.3
