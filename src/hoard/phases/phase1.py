@@ -75,7 +75,7 @@ class Find(BaseModel):
 class ContextSheet(BaseModel):
     source_file: str = Field(description="Original source filename")
     model: str = Field(default="glm-ocr", description="Model used for extraction")
-    schema_version: str = Field(default="1.0.0", description="Schema contract version")
+    schema_version: str = Field(default="2-0-0", description="Schema contract version (SchemaVer pattern)")
     context_number: str = Field(description="Context number, e.g. [101]")
     type: str = Field(description="Context type: layer, cut, deposit, structure, etc.")
     cut_by: list[str] = Field(default_factory=list, description="Contexts that cut this one")
