@@ -9,7 +9,7 @@ description = "Heritage Observation And Report Drafter — local multi-stage AI 
 requires-python = ">=3.11"
 license = { text = "MIT" }
 authors = [
-    { name = "Marcus Quinn" },
+    { name = "Mark Bouck" },
 ]
 
 dependencies = [
