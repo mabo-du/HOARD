@@ -481,6 +481,11 @@ class ReviewSession:
                 pass  # Geometry failures need re-run, not direct edit
             elif item.field == "_mandatory":
                 pass  # Need to add missing files, not edit JSON
+            elif item.source == FlagSource.PHASE4_COMPLIANCE and ":" in item.field:
+                # Compliance findings use "{section_id}:{type}" field paths that
+                # refer to entries inside data["findings"] — a list, not a dict
+                # hierarchy. Must be handled before the generic colon-path branch.
+                _update_compliance_finding(data, item.field, item.corrected_value)
             elif ":" in item.field:
                 _update_nested_field(data, item.field, item.corrected_value)
             else:
@@ -638,8 +643,54 @@ def _update_quality_flag(data: dict, item: ReviewItem) -> None:
             quality["review_notes"] = item.corrected_value
 
 
+def _update_compliance_finding(
+    data: dict, field_path: str, corrected_message: str
+) -> None:
+    """Update a compliance finding entry by section_id and type.
+
+    Phase 4 compliance JSON has the structure::
+
+        {"findings": [
+            {"section_id": "methodology",
+             "type": "missing_section",
+             "message": "...",
+             "severity": "error"},
+            ...
+        ]}
+
+    The field_path is "{section_id}:{type}" (set by _scan_compliance_json).
+    This function searches findings for the matching entry and updates
+    its message field — the only meaningful user-editable field.
+
+    Rules:
+        If multiple findings share the same section_id+type (unusual but
+        possible for prohibited_term findings), all matches are updated.
+    """
+    if ":" not in field_path:
+        return
+    section_id, finding_type = field_path.split(":", 1)
+    updated = False
+    for finding in data.get("findings", []):
+        if (
+            finding.get("section_id") == section_id
+            and finding.get("type") == finding_type
+        ):
+            finding["message"] = corrected_message
+            updated = True
+    if not updated:
+        import logging as _logging
+        _logging.getLogger(__name__).warning(
+            f"_update_compliance_finding: no finding matched "
+            f"section_id={section_id!r} type={finding_type!r}"
+        )
+
+
 def _update_nested_field(data: dict, field_path: str, value: str) -> None:
-    """Update a nested field from colon-delimited path (e.g. 'section:field')."""
+    """Update a nested field from colon-delimited path (e.g. 'section:field').
+
+    Generic dict-walk for Phase 1/2 JSON structures. Not suitable for
+    Phase 4 compliance JSON — use _update_compliance_finding() for that.
+    """
     parts = field_path.split(":")
     target = data
     for part in parts[:-1]:

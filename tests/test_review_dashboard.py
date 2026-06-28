@@ -289,6 +289,236 @@ class TestReviewSession:
         assert session.remaining == 2  # One deferred
 
 
+# ── Tests: _update_compliance_finding ──────────────────────────────────────────────
+
+
+class TestUpdateComplianceFinding:
+    """Unit tests for _update_compliance_finding."""
+
+    def _data(self) -> dict:
+        return {
+            "findings": [
+                {
+                    "section_id": "methodology",
+                    "type": "missing_section",
+                    "message": "Section 'methodology' not found in Phase 3 draft",
+                    "severity": "error",
+                },
+                {
+                    "section_id": "executive_summary",
+                    "type": "prohibited_term",
+                    "message": "Prohibited term 'dig' found",
+                    "severity": "warning",
+                },
+            ]
+        }
+
+    def test_updates_matching_finding(self) -> None:
+        from hoard.review.dashboard import _update_compliance_finding
+
+        data = self._data()
+        _update_compliance_finding(data, "methodology:missing_section", "Corrected note")
+        finding = next(f for f in data["findings"] if f["section_id"] == "methodology")
+        assert finding["message"] == "Corrected note"
+
+    def test_does_not_touch_other_findings(self) -> None:
+        from hoard.review.dashboard import _update_compliance_finding
+
+        data = self._data()
+        original_msg = data["findings"][1]["message"]
+        _update_compliance_finding(data, "methodology:missing_section", "Corrected note")
+        assert data["findings"][1]["message"] == original_msg
+
+    def test_updates_all_matches_for_same_type(self) -> None:
+        """Multiple prohibited_term findings for the same section should all update."""
+        from hoard.review.dashboard import _update_compliance_finding
+
+        data = {
+            "findings": [
+                {"section_id": "methodology", "type": "prohibited_term",
+                 "message": "Term 'dig'", "severity": "warning"},
+                {"section_id": "methodology", "type": "prohibited_term",
+                 "message": "Term 'trench'", "severity": "warning"},
+            ]
+        }
+        _update_compliance_finding(data, "methodology:prohibited_term", "Reviewed — acceptable")
+        assert all(
+            f["message"] == "Reviewed — acceptable" for f in data["findings"]
+        )
+
+    def test_no_match_does_not_raise(self) -> None:
+        from hoard.review.dashboard import _update_compliance_finding
+
+        data = self._data()
+        # Should not raise, only log a warning
+        _update_compliance_finding(data, "nonexistent:type", "value")
+        # findings unchanged
+        assert len(data["findings"]) == 2
+
+    def test_missing_colon_is_noop(self) -> None:
+        from hoard.review.dashboard import _update_compliance_finding
+
+        data = self._data()
+        original = json.dumps(data)
+        _update_compliance_finding(data, "no_colon_here", "value")
+        assert json.dumps(data) == original
+
+
+# ── Tests: Phase 4 compliance correction round-trip ───────────────────────────
+
+
+class TestComplianceCorrectionRoundtrip:
+    """Integration tests: Phase 4 compliance finding → scan → correct → save.
+
+    These tests exercise the full path from a compliance_*.json file on disk
+    through _scan_compliance_json → ReviewSession → save_corrections() → file.
+    They would have silently written nothing with the old _update_nested_field
+    path (regression guard).
+    """
+
+    @pytest.fixture
+    def workspace_with_compliance(self, tmp_path: Path) -> Config:
+        cfg = Config(
+            project_id="test_site_2026",
+            project_name="Test Site 2026",
+            jurisdiction="historic_england_cl3",
+            workspace_root=tmp_path,
+            input_dir=tmp_path / "input",
+        )
+        cfg.project_dir.mkdir(parents=True, exist_ok=True)
+        cfg.manifest_dir.mkdir(parents=True, exist_ok=True)
+        cfg.digitised_dir.mkdir(parents=True, exist_ok=True)
+        cfg.refined_dir.mkdir(parents=True, exist_ok=True)
+        return cfg
+
+    def _write_compliance_json(self, cfg: Config, filename: str, findings: list) -> Path:
+        path = cfg.refined_dir / filename
+        path.write_text(json.dumps({"findings": findings}, indent=2))
+        return path
+
+    def test_missing_section_correction_round_trips(self, workspace_with_compliance: Config) -> None:
+        """Correcting a missing_section finding updates the JSON on disk."""
+        cfg = workspace_with_compliance
+        compliance_path = self._write_compliance_json(
+            cfg,
+            "compliance_20260628_120000.json",
+            [
+                {
+                    "section_id": "methodology",
+                    "type": "missing_section",
+                    "message": "Section 'methodology' not found in Phase 3 draft",
+                    "severity": "error",
+                },
+            ],
+        )
+
+        session = ReviewSession(cfg)
+        session.load()
+
+        # Exactly one Phase 4 finding should be loaded
+        assert session.total == 1
+        item = session.current
+        assert item is not None
+        assert item.phase == 4
+        assert item.field == "methodology:missing_section"
+        assert item.source_file == "compliance_20260628_120000.json"
+
+        # Correct it
+        session.correct_current("Methodology section supplied via ARK import")
+        written = session.save_corrections()
+
+        # save_corrections() must report it was written
+        assert written == 1
+
+        # The file on disk must reflect the correction
+        updated = json.loads(compliance_path.read_text())
+        methodology = next(
+            f for f in updated["findings"]
+            if f["section_id"] == "methodology" and f["type"] == "missing_section"
+        )
+        assert methodology["message"] == "Methodology section supplied via ARK import"
+
+    def test_prohibited_term_correction_round_trips(self, workspace_with_compliance: Config) -> None:
+        """Correcting a prohibited_term finding updates the JSON on disk."""
+        cfg = workspace_with_compliance
+        compliance_path = self._write_compliance_json(
+            cfg,
+            "compliance_20260628_130000.json",
+            [
+                {
+                    "section_id": "executive_summary",
+                    "type": "prohibited_term",
+                    "message": "Prohibited term 'dig' found: ...we dug a trench...",
+                    "severity": "warning",
+                },
+                {
+                    "section_id": "methodology",
+                    "type": "missing_section",
+                    "message": "Section 'methodology' not found",
+                    "severity": "error",
+                },
+            ],
+        )
+
+        session = ReviewSession(cfg)
+        session.load()
+        assert session.total == 2
+
+        # Find and correct only the prohibited_term item
+        prohibited = next(
+            i for i in session.items if i.field == "executive_summary:prohibited_term"
+        )
+        prohibited.decision = ReviewDecision.CORRECTED
+        prohibited.corrected_value = "Reviewed: term acceptable in context"
+
+        written = session.save_corrections()
+        assert written == 1
+
+        updated = json.loads(compliance_path.read_text())
+        exec_finding = next(
+            f for f in updated["findings"]
+            if f["section_id"] == "executive_summary" and f["type"] == "prohibited_term"
+        )
+        methodology_finding = next(
+            f for f in updated["findings"]
+            if f["section_id"] == "methodology"
+        )
+        # Corrected finding updated
+        assert exec_finding["message"] == "Reviewed: term acceptable in context"
+        # Non-corrected finding untouched
+        assert methodology_finding["message"] == "Section 'methodology' not found"
+
+    def test_old_nested_field_path_would_have_silently_failed(self) -> None:
+        """Regression guard: _update_nested_field writes nothing for compliance JSON.
+
+        The compliance JSON is {"findings": [...]}, not a nested dict.
+        _update_nested_field(data, "methodology:missing_section", value) would
+        try data.get("methodology", {}) → {} → write to a dead-end temp dict.
+        Confirms _update_compliance_finding is the correct path.
+        """
+        from hoard.review.dashboard import _update_nested_field
+
+        data = {
+            "findings": [
+                {
+                    "section_id": "methodology",
+                    "type": "missing_section",
+                    "message": "original message",
+                    "severity": "error",
+                }
+            ]
+        }
+        original_message = data["findings"][0]["message"]
+        # This is what the old code did — it should have no effect on the finding
+        _update_nested_field(data, "methodology:missing_section", "corrected")
+        assert data["findings"][0]["message"] == original_message, (
+            "_update_nested_field must not reach into the findings list — "
+            "if this assertion fails the regression is back"
+        )
+
+
+
+
 # ── Tests: CLI integration ───────────────────────────────────────────────────
 
 
