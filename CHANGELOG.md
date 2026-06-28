@@ -20,6 +20,9 @@ All notable changes to HOARD are documented here. This project follows
 - **`NUEXTRACT_SYSTEM` constant missing** from `nuextract3.py` — was blocking the entire test suite at collection time.
 - **`__version__` mismatch** — now matches `pyproject.toml`.
 - **`evict_ollama_model()` silent failure** — now logs a warning.
+- **Phase 4 Compliance dashboard** — corrected `save_corrections()` so modifications correctly target and update the list of nested findings instead of a generic path.
+- **Exception Logging** — Added `logger.warning(...)` to bare `except Exception: pass` blocks in `providers/credentials.py`, `phases/phase0.py`, `phases/phase2.py`, and `phases/phase5.py`.
+- **VRAM profiler dependencies** — Updated references to use `nvidia-ml-py` instead of the deprecated `pynvml` package.
 
 ## [0.3.9] — 2026-06-16
 

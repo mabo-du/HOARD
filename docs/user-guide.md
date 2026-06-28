@@ -547,8 +547,10 @@ heritage run --project stoneyfield_2026 --pipeline pipeline.yaml
 
 ## Multi-Provider AI
 
+> **Note:** The `ProviderRouter` is currently bypassed from the live execution path. Phases will call Ollama directly. Cloud API configurations and credentials will not be actively used by the pipeline until a future update reinstates the router.
+
 HOARD supports **four AI backends** for GPU phases, selectable per phase.
-All inference is routed through the `ProviderRouter`, which handles provider
+All inference is designed to route through the `ProviderRouter`, which handles provider
 selection, fallback chains, audit logging, and cost tracking automatically.
 
 | Provider | Format | When to use |
