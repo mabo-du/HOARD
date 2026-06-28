@@ -1,0 +1,3 @@
+# yaml-language-server: $schema=https://use-charter.dev/schema/charter.schema.json
+policy:
+  profile: standard

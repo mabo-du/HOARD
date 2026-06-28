@@ -75,84 +75,84 @@ class TestGenerateViaProvider:
     """Tests for generate_via_provider response parsing with mocked Ollama.
 
     These tests verify that the response dict format, reasoning extraction
-    and error handling work correctly. They mock the httpx client to avoid
-    requiring a real Ollama instance.
+    and error handling work correctly. They mock OllamaProvider.generate
+    to avoid requiring a real Ollama instance.
     """
 
-    @patch("hoard.providers.get_router")
-    def test_returns_expected_fields(self, mock_get_router) -> None:
+    @patch("hoard.providers.ollama.OllamaProvider.generate")
+    def test_returns_expected_fields(self, mock_generate) -> None:
         """Verify the return dict has all expected keys."""
         from hoard.helpers import generate_via_provider
         from hoard.providers.protocol import InferenceResponse, TokenUsage
 
-        # Mock router to return a valid response
-        mock_router = MagicMock()
-        mock_router.route_sync.return_value = InferenceResponse(
+        mock_response = InferenceResponse(
             content="Simple text response",
             usage=TokenUsage(completion_tokens=42),
             provider_name="ollama",
             model_name="test-model",
         )
-        mock_get_router.return_value = mock_router
 
-        result = generate_via_provider(
-            model="test-model",
-            system="",
-            prompt="Say hello",
-            phase=3,
-        )
+        with patch("hoard.helpers.asyncio") as mock_asyncio:
+            mock_asyncio.run.return_value = mock_response
+            result = generate_via_provider(
+                model="test-model",
+                system="",
+                prompt="Say hello",
+                phase=3,
+            )
+
         assert isinstance(result, dict)
         assert result["response"] == "Simple text response"
         assert result["model"] == "test-model"
         assert result["eval_count"] == 42
         assert "reasoning" not in result
 
-    @patch("hoard.providers.get_router")
-    def test_extracts_thinking_tags(self, mock_get_router) -> None:
+    def test_extracts_thinking_tags(self) -> None:
         """Verify reasoning extraction from <think> blocks."""
         from hoard.helpers import generate_via_provider
         from hoard.providers.protocol import InferenceResponse, TokenUsage
 
-        mock_router = MagicMock()
-        # Response with thinking block
         content = "<think>I should respond concisely.</think>\nThe answer is 42."
-        mock_router.route_sync.return_value = InferenceResponse(
+        mock_response = InferenceResponse(
             content=content,
             usage=TokenUsage(completion_tokens=20),
             provider_name="ollama",
             model_name="test-model",
         )
-        mock_get_router.return_value = mock_router
 
-        result = generate_via_provider(
-            model="test-model",
-            system="",
-            prompt="What is the answer?",
-            phase=3,
-        )
+        with patch("hoard.helpers.asyncio") as mock_asyncio:
+            mock_asyncio.run.return_value = mock_response
+            result = generate_via_provider(
+                model="test-model",
+                system="",
+                prompt="What is the answer?",
+                phase=3,
+            )
+
         assert result["response"] == "The answer is 42."
         assert result["reasoning"] == "I should respond concisely."
 
-    @patch("hoard.providers.get_router")
-    def test_handles_missing_thinking_tags(self, mock_get_router) -> None:
+    def test_handles_missing_thinking_tags(self) -> None:
         """Verify no reasoning when response has no <think>."""
         from hoard.helpers import generate_via_provider
         from hoard.providers.protocol import InferenceResponse, TokenUsage
 
-        mock_router = MagicMock()
-        mock_router.route_sync.return_value = InferenceResponse(
+        mock_response = InferenceResponse(
             content="Plain response without thinking.",
             usage=TokenUsage(completion_tokens=10),
             provider_name="ollama",
             model_name="test-model",
         )
-        mock_get_router.return_value = mock_router
 
-        result = generate_via_provider(
-            model="test-model",
-            system="",
-            prompt="Say hello",
-            phase=3,
-        )
+        with patch("hoard.helpers.asyncio") as mock_asyncio:
+            mock_asyncio.run.return_value = mock_response
+            result = generate_via_provider(
+                model="test-model",
+                system="",
+                prompt="Say hello",
+                phase=3,
+            )
+
         assert result["response"] == "Plain response without thinking."
         assert result.get("reasoning") is None
+

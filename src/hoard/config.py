@@ -120,12 +120,17 @@ def init_project_config(
         input_dir=input_dir.resolve(),
     )
     cfg.project_dir.mkdir(parents=True, exist_ok=True)
-    (cfg.project_dir / "config.toml").write_text(
-        f"# HOARD project: {project_name}\n"
-        f"project_id: {project_id}\n"
-        f"project_name: {project_name}\n"
-        f"jurisdiction: {jurisdiction}\n"
-        f"extractor: {cfg.extractor}\n"
-        f"strict: {str(cfg.strict).lower()}\n"
+
+    import yaml as _yaml
+    config_data = {
+        "project_id": project_id,
+        "project_name": project_name,
+        "jurisdiction": jurisdiction,
+        "extractor": cfg.extractor,
+        "strict": cfg.strict,
+    }
+    config_text = f"# HOARD project: {project_id}\n" + _yaml.dump(
+        config_data, default_flow_style=False, allow_unicode=True
     )
+    (cfg.project_dir / "config.toml").write_text(config_text)
     return cfg

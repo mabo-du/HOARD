@@ -244,6 +244,10 @@ def review(
         False, "--gui-mode",
         help="Suppress Rich console output; emit structured JSON events to stdout",
     ),
+    apply_decisions: str | None = typer.Option(
+        None, "--apply-decisions",
+        help="Path to a decisions JSON file (from Trowel) to apply back to the workspace",
+    ),
 ) -> None:
     """Open the review dashboard for flagged items.
 
@@ -251,8 +255,10 @@ def review(
     accept, correct, or defer flagged items.
 
     In --gui-mode: emits each flagged item as a JSON event to stdout
-    for consumption by desktop GUI tools (Trowel). Use --apply-decisions
-    to write corrections back after GUI-side review.
+    for consumption by desktop GUI tools (Trowel).
+
+    With --apply-decisions <file>: reads a decisions JSON file written by
+    Trowel and applies corrections back to the workspace.
     """
     workspace_root = Path(workspace).resolve()
     cfg = Config(
@@ -272,6 +278,10 @@ def review(
 
     session = ReviewSession(cfg)
     session.load()
+
+    if apply_decisions:
+        _apply_gui_decisions(session, apply_decisions)
+        return
 
     if session.total == 0:
         if gui_mode:
@@ -335,6 +345,76 @@ def _run_review_gui_mode(session: Any) -> None:
         "draft_dir": str(session.config.draft_dir),
         "refined_dir": str(session.config.refined_dir),
     }))
+
+
+def _apply_gui_decisions(session: Any, decisions_path: str) -> None:
+    """Apply decisions from a Trowel-written decisions JSON file.
+
+    Reads a JSON array of decision objects, matches each to a ReviewItem
+    by item_id, applies the decision, and saves corrections to disk.
+
+    Expected JSON format (array of objects):
+        [{"item_id": "p1_ctx001_material",
+          "decision": "corrected",
+          "corrected_value": "coarse pottery",
+          "notes": "legible on original scan"}]
+
+    Decisions: "accepted", "corrected", "deferred" (case-insensitive).
+    """
+    from hoard.review import ReviewDecision
+
+    decisions_file = Path(decisions_path)
+    if not decisions_file.exists():
+        console.print(f"[red]✗[/] Decisions file not found: {decisions_path}")
+        raise typer.Exit(1)
+
+    try:
+        decisions = json.loads(decisions_file.read_text())
+    except (json.JSONDecodeError, OSError) as e:
+        console.print(f"[red]✗[/] Could not read decisions file: {e}")
+        raise typer.Exit(1)
+
+    if not isinstance(decisions, list):
+        console.print("[red]✗[/] Decisions file must be a JSON array")
+        raise typer.Exit(1)
+
+    # Build item lookup
+    item_map = {item.item_id: item for item in session.items}
+    applied = 0
+    skipped = 0
+
+    for dec in decisions:
+        item_id = dec.get("item_id")
+        if not item_id or item_id not in item_map:
+            skipped += 1
+            continue
+
+        item = item_map[item_id]
+        decision_str = str(dec.get("decision", "")).lower()
+        notes = str(dec.get("notes", ""))
+
+        if decision_str == "accepted":
+            item.decision = ReviewDecision.ACCEPTED
+            item.notes = notes
+            applied += 1
+        elif decision_str == "corrected":
+            corrected_value = dec.get("corrected_value")
+            if corrected_value is not None:
+                item.corrected_value = str(corrected_value)
+                item.decision = ReviewDecision.CORRECTED
+                item.notes = notes
+                applied += 1
+        elif decision_str == "deferred":
+            item.decision = ReviewDecision.DEFERRED
+            item.notes = notes
+            applied += 1
+        else:
+            skipped += 1
+
+    written = session.save_corrections()
+    console.print(f"[green]✓[/] Applied {applied} decision(s), {written} correction(s) written to workspace.")
+    if skipped:
+        console.print(f"[yellow]ℹ[/] {skipped} decision(s) skipped (unknown item_id or unsupported decision type).")
 
 
 @app.command()

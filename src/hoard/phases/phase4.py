@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 
 # ── Constants ──────────────────────────────────────────────────────────────
 
-DEFAULT_MODEL = "tripolskypetr/gemma4-uncensored-aggressive:latest"
+DEFAULT_MODEL = "gemma2:2b"  # Standard instruction-tuned model for compliance editing
 DEFAULT_TEMPERATURE = 0.1
 DEFAULT_TIMEOUT = 120  # 2 minutes per section
 
@@ -353,7 +353,36 @@ def run_phase4(
     compliant_path = config.refined_dir / f"compliant_{timestamp}.md"
     compliant_path.write_text(compliant_text)
 
-    # Step 6: Log prohibited terms that couldn't be auto-replaced
+    # Step 5b: Write structured compliance JSON for the review dashboard.
+    # dashboard._scan_compliance_json() looks for compliance_*.json in refined_dir.
+    # Without this file, Phase 4 findings never reach the review workflow.
+    import json as _json
+
+    compliance_findings: list[dict[str, str]] = []
+    for sec_id in missing_sections:
+        compliance_findings.append({
+            "section_id": sec_id,
+            "type": "missing_section",
+            "message": f"Section '{sec_id}' not found in Phase 3 draft",
+            "severity": "error",
+        })
+    for flag in all_prohibited_flags:
+        compliance_findings.append({
+            "section_id": flag.get("section", "unknown"),
+            "type": "prohibited_term",
+            "message": f"Prohibited term '{flag['term']}' found: ...{flag['context']}...",
+            "severity": "warning",
+        })
+    if placeholder_count > 0:
+        compliance_findings.append({
+            "section_id": "_report",
+            "type": "placeholder",
+            "message": f"{placeholder_count} [MISSING:] placeholder(s) remain in compliant report",
+            "severity": "warning",
+        })
+
+    compliance_json_path = config.refined_dir / f"compliance_{timestamp}.json"
+    compliance_json_path.write_text(_json.dumps({"findings": compliance_findings}, indent=2))
     if all_prohibited_flags:
         prohibited_log = config.logs_dir / f"phase4_prohibited_terms_{timestamp}.txt"
         log_lines = ["Prohibited Terms Found:", ""]
@@ -377,6 +406,7 @@ def run_phase4(
         "prohibited_flags": all_prohibited_flags,
         "placeholder_count": placeholder_count,
         "compliant_path": str(compliant_path),
+        "compliance_json_path": str(compliance_json_path),
         "duration_ms": duration_ms,
     }
 

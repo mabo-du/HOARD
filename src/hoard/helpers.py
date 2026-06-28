@@ -17,6 +17,7 @@ rules:   Must never import torch or any GPU-bound library.
 
 from __future__ import annotations
 
+import asyncio
 import gc
 import json
 import logging
@@ -62,12 +63,16 @@ def evict_ollama_model(model_name: str) -> None:
             json={"model": model_name, "prompt": "", "keep_alive": 0},
             timeout=5,
         )
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning(f"VRAM eviction failed for '{model_name}': {e}")
     gc.collect()
 
 
 # ── Provider-Based Inference ──────────────────────────────────────────────
+# NOTE: ProviderRouter (providers/router.py) is fully built but deliberately
+# NOT wired into the phase call path — stability decision made 28 June 2026,
+# not an oversight. Multi-provider wiring is a separate future project.
+# Phases call OllamaProvider directly until that work is undertaken.
 
 def generate_via_provider(
     model: str,
@@ -83,19 +88,23 @@ def generate_via_provider(
     keep_alive: int = 0,
     timeout: int = 120,
 ) -> dict[str, Any]:
-    """Route an inference request through the provider abstraction.
+    """Call OllamaProvider directly for inference.
 
-    Builds an InferenceRequest from legacy-style parameters, calls the
-    ProviderRouter (which handles provider selection, fallback, and audit
-    logging), and returns a dict matching the historical _ollama_generate
+    Builds an InferenceRequest from legacy-style parameters, calls
+    OllamaProvider directly (bypassing the ProviderRouter — see note
+    above), and returns a dict matching the historical _ollama_generate
     return format.
+
+    Rules:
+        max_tokens is the *output length cap* (default 2048), not the
+        context window size. Pass num_ctx separately for context window.
 
     Returns:
         dict with keys: response, model, eval_count, eval_duration,
         and optionally reasoning (if <think> tags detected).
     """
-    from hoard.providers import get_router
-    from hoard.providers.protocol import InferenceRequest, ProviderError
+    from hoard.providers.ollama import OllamaProvider
+    from hoard.providers.protocol import InferenceRequest
 
     # Convert legacy system/prompt to chat messages
     messages: list[dict[str, Any]] = []
@@ -106,7 +115,7 @@ def generate_via_provider(
     # Build provider kwargs for Ollama-specific options
     provider_kwargs: dict[str, Any] = {}
     if num_ctx is not None:
-        provider_kwargs["num_ctx"] = num_ctx
+        provider_kwargs["num_ctx"] = num_ctx  # context window size
     if keep_alive:
         provider_kwargs["keep_alive"] = keep_alive
 
@@ -114,29 +123,15 @@ def generate_via_provider(
         messages=messages,
         model_name=model,
         temperature=temperature,
-        max_tokens=num_ctx,
+        max_tokens=2048,  # output length cap — not the context window
         response_schema=response_schema,
         template_format="json" if json_format else None,
         images=images,
         provider_kwargs=provider_kwargs,
     )
 
-    router = get_router()
-    try:
-        response = router.route_sync(request, phase)
-    except ProviderError:
-        # If the router's tier excludes Ollama (e.g. ULTRA_LIGHT with no GPU),
-        # try direct OllamaProvider when an explicit local model is specified.
-        # This ensures generate_via_provider works even in dev environments
-        # where hardware tier isn't calibrated.
-        from hoard.providers.ollama import OllamaProvider
-        import asyncio
-        provider = OllamaProvider(model_name=model)
-        response = asyncio.run(provider.generate(request))
-        # Still log the audit entry
-        router._audit(phase=phase, provider="ollama", model=model,
-                      usage=response.usage, success=True)
-
+    provider = OllamaProvider(model_name=model)
+    response = asyncio.run(provider.generate(request))
     content = response.content
 
     # Extract reasoning/thinking chain if present (Qwen3.5 thinking mode)

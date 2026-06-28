@@ -10,4 +10,4 @@ rules:   No model inference logic in this file; orchestration only.
 agent:   deepseek-v4-flash | 2026-05-09 | s_20260509_001 | Initial scaffold
 """
 
-__version__ = "0.1.0"
+__version__ = "0.3.9"

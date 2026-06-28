@@ -407,7 +407,7 @@ def process_svg_drawing(
 
         b64_image = base64.b64encode(image_bytes).decode("utf-8")
         result = generate_via_provider(
-            model=GLM_OCR_MODEL,
+            model=QWEN_VL_MODEL,
             system=system,
             prompt=user,
             phase=2,

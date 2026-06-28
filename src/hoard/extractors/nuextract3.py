@@ -38,6 +38,13 @@ def _get_context_sheet():
     return _ContextSheet
 
 
+NUEXTRACT_SYSTEM = (
+    "Extract structured data from the archaeological context sheet image. "
+    "Return only valid JSON matching the provided schema. "
+    "Do not invent data or add fields not visible in the document. "
+    "If a field is illegible or absent, set its value to null."
+)
+
 # ── Model paths ─────────────────────────────────────────────────────────────
 
 _HF_SNAPSHOT = (
