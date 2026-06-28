@@ -4,6 +4,23 @@ All notable changes to HOARD are documented here. This project follows
 [Semantic Versioning](https://semver.org/) and the format is based on
 [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.4.0] — 2026-06-29
+
+### Changed
+
+- **Provider Router** — disabled from the live call path (Option B). Phases now call Ollama directly. Prevents silent fallbacks that wrote false successful audit entries on failure. `ProviderRouter` and related modules remain in the codebase, documented as deliberately dormant, pending a dedicated future wiring project.
+- **Phase 4 default model** — `tripolskypetr/gemma4-uncensored-aggressive:latest` → `gemma2:2b`, a standard instruction-tuned model for a compliance task.
+- **Phase 2 SVG generation model** — `GLM_OCR_MODEL` → `QWEN_VL_MODEL` in `process_svg_drawing()` — vision model instead of document-OCR model.
+- **`init_project_config()`** — writes per-project config via `yaml.dump()` instead of hand-built f-strings, preventing invalid YAML when a project name contains a colon.
+
+### Fixed
+
+- **`num_ctx`/`max_tokens` conflation** in `generate_via_provider()` — output cap is now a fixed 2048 default; `num_ctx` passed separately.
+- **Missing `httpx` dependency** declared in `pyproject.toml`.
+- **`NUEXTRACT_SYSTEM` constant missing** from `nuextract3.py` — was blocking the entire test suite at collection time.
+- **`__version__` mismatch** — now matches `pyproject.toml`.
+- **`evict_ollama_model()` silent failure** — now logs a warning.
+
 ## [0.3.9] — 2026-06-16
 
 ### Added
@@ -317,7 +334,8 @@ All notable changes to HOARD are documented here. This project follows
 - **E2E test datasets** — Pinn Brook Park (49 contexts, CC-BY 4.0), A14
   Cambridge to Huntingdon (99 contexts), Gallows Hill (50-70 contexts).
 
-[Unreleased]: https://github.com/mabo-du/HOARD/compare/v0.3.9...HEAD
+[Unreleased]: https://github.com/mabo-du/HOARD/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/mabo-du/HOARD/compare/v0.3.9...v0.4.0
 [0.3.9]: https://github.com/mabo-du/HOARD/compare/v0.3.8...v0.3.9
 [0.3.8]: https://github.com/mabo-du/HOARD/compare/v0.3.7...v0.3.8
 [0.3.7]: https://github.com/mabo-du/HOARD/compare/v0.3.6...v0.3.7

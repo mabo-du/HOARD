@@ -30,21 +30,7 @@ jobs:
           name: dist-sdist
           path: dist/
 
-  # ── PyPI publish ────────────────────────────────────────────────────────
-  pypi:
-    name: Publish to PyPI
-    needs: [sdist]
-    runs-on: ubuntu-latest
-    permissions:
-      id-token: write
-    steps:
-      - uses: actions/download-artifact@v8
-        with:
-          name: dist-sdist
-          path: dist/
 
-      - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
 
   # ── Linux standalone executable ──────────────────────────────────────────
   linux:
@@ -226,7 +212,7 @@ jobs:
   # ── Create GitHub Release ───────────────────────────────────────────────
   release:
     name: Create GitHub Release
-    needs: [linux, macos, windows, pypi]
+    needs: [linux, macos, windows]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
